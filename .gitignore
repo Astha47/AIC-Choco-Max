@@ -1,0 +1,13 @@
+# Ignore all datasets folders and their contents
+**/datasets/
+**/datasets/**
+
+# Ignore all result folders and their contents
+**/result/
+**/result/**
+
+# Ignore all weight folders and their contents
+**/weight/
+**/weight/**
+# Ignore all .pt files (PyTorch weights)
+**/*.pt
