@@ -11,3 +11,28 @@
 **/weight/**
 # Ignore all .pt files (PyTorch weights)
 **/*.pt
+
+# Ignore camera-dummy sample videos and common video files
+BE/camera-dummy/samples/
+BE/camera-dummy/samples/*
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.flv
+
+# Ignore rtsp server binary and archives (large files)
+BE/rtsp-server/rtsp-simple-server
+BE/rtsp-server/rtsp-simple-server.tar.gz
+BE/rtsp-server/*.tar.gz
+
+## Ignore Python virtual environments
+venv/
+**/venv/
+.venv/
+**/.venv/
+env/
+**/env/
+.env/
+**/.env/
