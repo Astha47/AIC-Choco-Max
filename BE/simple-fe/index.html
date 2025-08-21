@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple FE - RTSP/HLS + MQTT Test</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(320px,1fr)); gap: 12px; }
+    .card { border: 1px solid #ddd; padding: 8px; border-radius: 6px; }
+    video { width: 100%; height: auto; background: #000; }
+    #log { height: 240px; overflow: auto; background:#111; color:#0f0; padding:8px; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <h2>Simple FE — HLS playback + MQTT detections</h2>
+  <p>Plays HLS streams served by the RTSP server and subscribes to MQTT topic <code>cameras/+/detections</code> via WebSocket.</p>
+
+  <div class="grid" id="videos"></div>
+
+  <h3>MQTT Log</h3>
+  <div id="log">Connecting...</div>
+
+  <script src="https://unpkg.com/hls.js@1.4.0/dist/hls.min.js"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
