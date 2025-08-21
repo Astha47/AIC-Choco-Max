@@ -35,12 +35,18 @@ class Config:
     # RTSP Configuration
     RTSP_URLS = os.getenv('RTSP_URLS', 'rtsp://localhost:8554/cam01').split(',')
     RTSP_RECONNECT_INTERVAL = int(os.getenv('RTSP_RECONNECT_INTERVAL', '5'))
+    # Number of cameras to manage (will expand/truncate RTSP_URLS to this length)
+    CAMERA_COUNT = int(os.getenv('CAMERA_COUNT', '6'))
+    # If a camera fails to connect this many times, it will be marked disabled
+    CAMERA_MAX_RETRIES = int(os.getenv('CAMERA_MAX_RETRIES', '6'))
+    CAMERA_RETRY_INTERVAL = int(os.getenv('CAMERA_RETRY_INTERVAL', '5'))
     
     # Model Configuration
     MODEL_PATH = os.getenv('MODEL_PATH', './models/yolov12n.pt')
     MODEL_CONFIDENCE = float(os.getenv('MODEL_CONFIDENCE', '0.5'))
     MODEL_IOU_THRESHOLD = float(os.getenv('MODEL_IOU_THRESHOLD', '0.45'))
-    MODEL_DEVICE = os.getenv('MODEL_DEVICE', 'cpu')
+    # Accepts 'cpu', 'cuda', or 'auto' (auto will pick cuda if available, else cpu)
+    MODEL_DEVICE = os.getenv('MODEL_DEVICE', 'auto')
     MODEL_IMGSZ = int(os.getenv('MODEL_IMGSZ', '640'))
     
     # MQTT Configuration
@@ -55,7 +61,7 @@ class Config:
     # Database Configuration
     DB_ENABLED = os.getenv('DB_ENABLED', 'false').lower() == 'true'
     DB_HOST = os.getenv('DB_HOST', 'localhost')
-    DB_PORT = int(os.getenv('DB_PORT', '3306'))
+    DB_PORT = int(os.getenv('DB_PORT', '3307'))
     DB_USER = os.getenv('DB_USER', 'root')
     DB_PASSWORD = os.getenv('DB_PASSWORD', '')
     DB_NAME = os.getenv('DB_NAME', 'yolo_detections')
@@ -236,11 +242,41 @@ class YOLOInference:
             if not model_path.exists():
                 self.logger.warning(f"Model file not found: {model_path}")
                 self._download_fallback_model()
-            
-            # Load model
-            self.model = YOLO(str(model_path))
-            self.model.to(self.device)
-            self.logger.info(f"YOLO model loaded successfully on {self.device}")
+
+            # If a fallback was downloaded, refresh the model_path to point to it
+            model_path = Path(self.config.MODEL_PATH)
+
+            # Determine runtime device with safe fallback
+            requested = str(self.device).lower()
+            if requested == 'auto':
+                device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            else:
+                # If user requested cuda but no GPU is available, fall back to cpu
+                if requested.startswith('cuda') and not torch.cuda.is_available():
+                    self.logger.warning("Requested CUDA device but no GPU available; falling back to CPU")
+                    device = 'cpu'
+                else:
+                    device = requested
+
+            # If a fallback model object was created during download, use it directly
+            if hasattr(self, '_fallback_model_obj') and self._fallback_model_obj is not None:
+                self.model = self._fallback_model_obj
+            else:
+                # Load model from file/path
+                self.model = YOLO(str(model_path))
+            try:
+                self.model.to(device)
+                self.logger.info(f"YOLO model loaded successfully on {device}")
+            except Exception as e:
+                # If moving to the requested device fails, fallback to CPU
+                self.logger.warning(f"Failed moving model to {device}: {e}; falling back to CPU")
+                try:
+                    self.model.to('cpu')
+                    device = 'cpu'
+                    self.logger.info("YOLO model moved to CPU successfully")
+                except Exception as e2:
+                    self.logger.error(f"Failed to move model to CPU as fallback: {e2}")
+                    raise
             
             # Warm up model
             dummy_img = np.zeros((640, 640, 3), dtype=np.uint8)
@@ -260,13 +296,15 @@ class YOLOInference:
             models_dir.mkdir(exist_ok=True)
             
             # Download YOLOv8n as fallback
+            # Downloading the model via YOLO(...) returns a model object; keep it in-memory
             fallback_model = YOLO('yolov8n.pt')
-            fallback_path = models_dir / 'yolov8n_fallback.pt'
-            
-            # Save to local path
-            torch.save(fallback_model.model.state_dict(), fallback_path)
-            self.config.MODEL_PATH = str(fallback_path)
-            self.logger.info(f"Fallback model saved to: {fallback_path}")
+
+            # Store the model object so _load_model can use it directly and avoid cross-filesystem moves
+            self._fallback_model_obj = fallback_model
+
+            # Point MODEL_PATH to the filename as a hint (not required when using the object)
+            self.config.MODEL_PATH = 'yolov8n.pt'
+            self.logger.info(f"Fallback model available as in-memory object and path set to: {self.config.MODEL_PATH}")
             
         except Exception as e:
             self.logger.error(f"Failed to download fallback model: {e}")
@@ -312,14 +350,20 @@ class YOLOInference:
 class CameraManager:
     """RTSP camera manager with reconnection handling"""
     
-    def __init__(self, rtsp_url: str, camera_id: str):
+    def __init__(self, rtsp_url: str, camera_id: str, max_retries: int = 6, retry_interval: int = 5):
         self.rtsp_url = rtsp_url
         self.camera_id = camera_id
         self.cap = None
         self.connected = False
         self.frame_count = 0
         self.logger = logging.getLogger(__name__ + f'.Camera.{camera_id}')
-        
+
+        # Auto-disable handling
+        self.failure_count = 0
+        self.max_retries = max_retries
+        self.retry_interval = retry_interval
+        self.disabled = False
+
         self._connect()
     
     def _connect(self):
@@ -328,18 +372,35 @@ class CameraManager:
             self.cap = cv2.VideoCapture(self.rtsp_url)
             if self.cap.isOpened():
                 self.connected = True
+                self.failure_count = 0
                 self.logger.info(f"Connected to camera: {self.rtsp_url}")
             else:
                 self.connected = False
-                self.logger.error(f"Failed to connect to camera: {self.rtsp_url}")
+                self.failure_count += 1
+                self.logger.error(f"Failed to connect to camera: {self.rtsp_url} (failure {self.failure_count}/{self.max_retries})")
+                if self.failure_count >= self.max_retries:
+                    self.disabled = True
+                    self.logger.warning(f"Camera {self.camera_id} disabled after {self.failure_count} failed attempts")
         except Exception as e:
             self.logger.error(f"Camera connection error: {e}")
             self.connected = False
+            self.failure_count += 1
+            if self.failure_count >= self.max_retries:
+                self.disabled = True
+                self.logger.warning(f"Camera {self.camera_id} disabled after repeated connection errors")
     
     def read_frame(self) -> Optional[np.ndarray]:
         """Read frame from camera with reconnection handling"""
+        if self.disabled:
+            # Camera permanently disabled; do not attempt further reads
+            return None
+
         if not self.connected:
+            # Try to reconnect but don't block long here
             self._connect()
+            # If still not connected, wait a bit before next attempt
+            if not self.connected:
+                time.sleep(self.retry_interval)
             return None
         
         try:
@@ -361,6 +422,8 @@ class CameraManager:
         if self.cap:
             self.cap.release()
             self.connected = False
+        # Mark camera as disabled when resources are released
+        self.disabled = True
 
 class InferenceService:
     """Main inference service orchestrator"""
@@ -405,9 +468,24 @@ class InferenceService:
     
     def _initialize_cameras(self):
         """Initialize camera connections"""
-        for i, rtsp_url in enumerate(self.config.RTSP_URLS):
+        # Ensure RTSP_URLS length matches CAMERA_COUNT by padding/truncating
+        urls = [u.strip() for u in self.config.RTSP_URLS if u.strip()]
+        # If provided urls are fewer than CAMERA_COUNT, generate template urls
+        for idx in range(len(urls), self.config.CAMERA_COUNT):
+            # Default template: replace trailing number if present, else append index
+            default_url = f"rtsp://rtsp-server:8554/cam{idx+1:02d}"
+            urls.append(default_url)
+
+        # Truncate if too many
+        urls = urls[: self.config.CAMERA_COUNT]
+
+        for i, rtsp_url in enumerate(urls):
             camera_id = f"cam{i+1:02d}"
-            self.cameras[camera_id] = CameraManager(rtsp_url.strip(), camera_id)
+            self.cameras[camera_id] = CameraManager(
+                rtsp_url, camera_id,
+                max_retries=self.config.CAMERA_MAX_RETRIES,
+                retry_interval=self.config.CAMERA_RETRY_INTERVAL,
+            )
             self.fps_counters[camera_id] = {"count": 0, "last_time": time.time()}
     
     def _process_camera(self, camera_id: str):
@@ -417,6 +495,10 @@ class InferenceService:
         
         while self.running:
             try:
+                # Exit the loop if camera has been auto-disabled
+                if camera.disabled:
+                    self.logger.info(f"Camera {camera_id} is disabled; stopping processing thread")
+                    return
                 frame = camera.read_frame()
                 if frame is None:
                     time.sleep(self.config.RTSP_RECONNECT_INTERVAL)

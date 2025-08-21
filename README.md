@@ -47,7 +47,7 @@ YOLOv12 real-time object detection system with WebRTC streaming, MQTT messaging,
 ### 3. Access Services
 - **SFU WebRTC**: http://localhost:3000
 - **MQTT Console**: http://localhost:8080
-- **Database**: localhost:3306
+- **Database**: localhost:3307
 - **RTSP Streams**: rtsp://localhost:8554/cam[1-3]
 
 ## 📋 Services Overview

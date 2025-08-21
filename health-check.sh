@@ -73,9 +73,9 @@ check_service_endpoints() {
     
     # MySQL Database
     if docker exec yolo-mysql mysqladmin ping -h localhost --silent 2>/dev/null; then
-        print_status "✓ MySQL Database (localhost:3306)"
+        print_status "✓ MySQL Database (localhost:3307)"
     else
-        print_warning "✗ MySQL Database (localhost:3306) - not responding"
+        print_warning "✗ MySQL Database (localhost:3307) - not responding"
     fi
     
     # RTSP Streams

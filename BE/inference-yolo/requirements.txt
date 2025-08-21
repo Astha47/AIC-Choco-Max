@@ -7,7 +7,7 @@ mysql-connector-python==8.1.0
 python-dotenv==1.0.0
 numpy==1.24.3
 Pillow==10.0.0
-rtsp-client==0.2.0
+# rtsp-client==0.2.0  # disabled - not available on PyPI; using ffmpeg/OpenCV/aiortc as alternatives
 aiortc==1.6.0
 aiohttp==3.8.5
 asyncio-mqtt==0.13.0

@@ -151,7 +151,7 @@ if [ "$DETACHED" = true ]; then
     cat << EOF
 📊 SFU Service:          http://localhost:3000
 📡 MQTT Console:         http://localhost:8080  
-🗄️  Database (MySQL):    localhost:3306
+🗄️  Database (MySQL):    localhost:3307
 📹 RTSP Streams:         rtsp://localhost:8554/cam[1-3]
 🎥 Camera Dummy:         Running (generating streams)
 🤖 YOLO Inference:       Running (processing detections)

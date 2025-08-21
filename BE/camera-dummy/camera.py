@@ -275,14 +275,12 @@ class CameraDummyManager:
             logger.error("Still no video files found. Cannot start cameras.")
             return
         
-        # Allow specifying number of cameras via environment variable NUM_CAMERAS
-        try:
-            num_cameras = int(os.getenv('NUM_CAMERAS', len(video_files)))
-        except ValueError:
-            num_cameras = len(video_files)
+        # Auto-detect number of cameras from available video files
+        num_cameras = len(video_files)
 
         if num_cameras <= 0:
-            num_cameras = len(video_files)
+            logger.error("No video files available to start cameras.")
+            return []
 
         self.running = True
         rtsp_urls = []

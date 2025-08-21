@@ -217,7 +217,7 @@ Network Configuration:
 - RTSP Server: rtsp://localhost:8554/cam[1-3]
 - SFU Service: http://localhost:3000
 - MQTT Broker: mqtt://localhost:1883, ws://localhost:8000
-- MySQL Database: localhost:3306
+    - MySQL Database: localhost:3307
 - Frontend: http://localhost:8080
 
 Internal Communication:
@@ -287,7 +287,7 @@ Quick Start:
 Service URLs:
 - 📊 SFU Service: http://localhost:3000
 - 📡 MQTT Console: http://localhost:8080
-- 🗄️  MySQL: localhost:3306
+- 🗄️  MySQL: localhost:3307
 - 📹 RTSP: rtsp://localhost:8554/cam[1-3]
 
 Troubleshooting:

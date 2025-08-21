@@ -15,7 +15,7 @@ services:
       - mysql_data:/var/lib/mysql
       - ./database/init:/docker-entrypoint-initdb.d
     ports:
-      - "3306:3306"
+      - "3307:3306"  # Changed host port from 3306 -> 3307 to avoid conflict with host MySQL
     networks:
       - yolo-network
     healthcheck:
@@ -54,7 +54,7 @@ services:
     ports:
       - "8554:8554"       # RTSP
       - "1935:1935"       # RTMP
-      - "8888:8888"       # HLS
+      - "9888:8888"       # HLS (host:container changed from 8888:8888 -> 9888:8888 to avoid conflicts)
     volumes:
       - ./BE/camera-dummy/samples:/app/samples
       - ./BE/rtsp-server/rtsp-simple-server.yml:/app/rtsp-simple-server.yml
@@ -73,8 +73,7 @@ services:
     container_name: yolo-camera-dummy
     restart: unless-stopped
     environment:
-      - RTSP_SERVER=rtsp-server:8554
-      - NUM_CAMERAS=3
+      RTSP_SERVER: "rtsp-server:8554"
     volumes:
       - ./BE/camera-dummy/samples:/app/samples
     networks:
@@ -142,23 +141,7 @@ services:
         reservations:
           memory: 512M
 
-  # Frontend Service (Optional)
-  frontend:
-    build:
-      context: ./FE
-      dockerfile: Dockerfile
-    container_name: yolo-frontend
-    restart: unless-stopped
-    ports:
-      - "8080:80"
-    environment:
-      - SFU_URL=ws://localhost:3000
-      - MQTT_URL=ws://localhost:8000
-    networks:
-      - yolo-network
-    depends_on:
-      - sfu-mediasoup
-      - hivemq
+
 
 volumes:
   mysql_data:

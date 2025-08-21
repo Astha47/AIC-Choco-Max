@@ -7,7 +7,7 @@ function log(msg){
   LOG.innerText = `[${t}] ${msg}\n` + LOG.innerText;
 }
 
-// Create 3 video cards for cam01..cam03 via HLS (rtsp-server provides HLS on :8888)
+// Create 3 video cards for cam01..cam03 via HLS (rtsp-server provides HLS on :9888)
 const cams = ['cam01','cam02','cam03'];
 for(const c of cams){
   const card = document.createElement('div');
@@ -20,7 +20,7 @@ for(const c of cams){
   video.muted = true;
   video.playsInline = true;
 
-  const hlsUrl = `http://localhost:8888/${c}.m3u8`;
+  const hlsUrl = `http://localhost:9888/${c}.m3u8`;
   const p = document.createElement('p');
   p.innerHTML = `HLS: <a href="${hlsUrl}" target="_blank">${hlsUrl}</a>`;
 
