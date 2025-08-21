@@ -16,6 +16,10 @@ import subprocess
 import signal
 import sys
 from pathlib import Path
+try:
+    import numpy as np
+except Exception:
+    np = None
 
 # Setup logging
 logging.basicConfig(
@@ -25,10 +29,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class RTSPCameraDummy:
-    def __init__(self, video_path, camera_id, rtsp_port=8554, max_fps=None):
+    def __init__(self, video_path, camera_id, rtsp_port=8554, max_fps=None, rtsp_host='localhost'):
         self.video_path = video_path
         self.camera_id = camera_id
         self.rtsp_port = rtsp_port
+        self.rtsp_host = rtsp_host
         # Optional maximum FPS cap for this camera (None = no cap)
         self.max_fps = max_fps
         self.running = False
@@ -38,8 +43,8 @@ class RTSPCameraDummy:
     def start_rtsp_server(self):
         """Start RTSP server using FFmpeg"""
         try:
-            # RTSP URL untuk kamera ini
-            rtsp_url = f"rtsp://localhost:{self.rtsp_port}/camera_{self.camera_id}"
+            # RTSP URL untuk kamera ini (use consistent /camXX path)
+            rtsp_url = f"rtsp://{self.rtsp_host}:{self.rtsp_port}/cam{int(self.camera_id):02d}"
             
             # Command FFmpeg untuk streaming RTSP
             cmd = [
@@ -150,7 +155,7 @@ class RTSPCameraDummy:
             self.thread = threading.Thread(target=self.start_opencv_streaming)
             self.thread.daemon = True
             self.thread.start()
-            return f"opencv://camera_{self.camera_id}"
+            return f"opencv://cam{int(self.camera_id):02d}"
     
     def stop(self):
         """Stop the camera streaming"""
@@ -169,11 +174,31 @@ class RTSPCameraDummy:
         logger.info(f"Camera {self.camera_id} stopped")
 
 class CameraDummyManager:
-    def __init__(self, samples_dir="./samples", base_port=8554, max_fps=None):
+    def __init__(self, samples_dir="./samples", base_port=8554, max_fps=None, rtsp_server=None):
         self.samples_dir = samples_dir
         self.base_port = base_port
         # Optional global cap for camera output FPS
         self.max_fps = max_fps
+        # RTSP server host:port (if provided as env var RTSP_SERVER)
+        # Expected format: host:port or rtsp://host:port
+        self.rtsp_server = rtsp_server or os.getenv('RTSP_SERVER', None)
+        self.rtsp_host = 'localhost'
+        self.rtsp_port = self.base_port
+        if self.rtsp_server:
+            # normalize
+            server = self.rtsp_server
+            if server.startswith('rtsp://'):
+                server = server[len('rtsp://'):]
+            if ':' in server:
+                host, port = server.split(':', 1)
+                self.rtsp_host = host
+                try:
+                    self.rtsp_port = int(port)
+                except ValueError:
+                    self.rtsp_port = self.base_port
+            else:
+                self.rtsp_host = server
+                self.rtsp_port = self.base_port
         self.cameras = []
         self.running = False
         
@@ -241,26 +266,43 @@ class CameraDummyManager:
     def start_all_cameras(self, use_ffmpeg=True):
         """Start all camera streams"""
         video_files = self.discover_video_files()
-        
         if not video_files:
             logger.warning("No video files found. Creating sample videos...")
             self.create_sample_videos()
             video_files = self.discover_video_files()
-        
+
         if not video_files:
             logger.error("Still no video files found. Cannot start cameras.")
             return
         
+        # Allow specifying number of cameras via environment variable NUM_CAMERAS
+        try:
+            num_cameras = int(os.getenv('NUM_CAMERAS', len(video_files)))
+        except ValueError:
+            num_cameras = len(video_files)
+
+        if num_cameras <= 0:
+            num_cameras = len(video_files)
+
         self.running = True
         rtsp_urls = []
+
+        logger.info(f"Starting {num_cameras} camera streams...")
         
-        logger.info(f"Starting {len(video_files)} camera streams...")
-        
-        for i, video_file in enumerate(video_files):
+        # If fewer video files than requested cameras, reuse videos cyclically
+        for i in range(num_cameras):
+            video_file = video_files[i % len(video_files)]
             camera_id = i + 1
-            port = self.base_port + i
+            # Use consistent RTSP server host and port for all cameras
+            port = self.rtsp_port
             
-            camera = RTSPCameraDummy(video_file, camera_id, port, max_fps=self.max_fps)
+            camera = RTSPCameraDummy(
+                video_file,
+                camera_id,
+                rtsp_port=port,
+                max_fps=self.max_fps,
+                rtsp_host=self.rtsp_host
+            )
             rtsp_url = camera.start(use_ffmpeg)
             
             if rtsp_url:
@@ -338,7 +380,8 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
     
     # Create manager
-    manager = CameraDummyManager(args.samples_dir, args.base_port, max_fps=args.max_fps)
+    rtsp_server_env = os.getenv('RTSP_SERVER', None)
+    manager = CameraDummyManager(args.samples_dir, args.base_port, max_fps=args.max_fps, rtsp_server=rtsp_server_env)
     
     if args.create_samples:
         manager.create_sample_videos()
@@ -362,11 +405,4 @@ def main():
     manager.run(use_ffmpeg)
 
 if __name__ == "__main__":
-    # Import numpy if needed for sample video creation
-    try:
-        import numpy as np
-    except ImportError:
-        logger.warning("NumPy not found. Sample video creation may not work.")
-        np = None
-    
     main()

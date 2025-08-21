@@ -1,8 +1,3 @@
 opencv-python==4.8.1.78
 numpy==1.24.3
-threading
-argparse
-os
-glob
-time
-logging
+# stdlib modules (argparse, os, glob, time, logging) are not listed here

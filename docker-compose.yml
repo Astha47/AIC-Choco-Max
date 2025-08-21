@@ -1,0 +1,178 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: yolo-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-yolo123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-yolo_detections}
+      MYSQL_USER: ${MYSQL_USER:-yolo_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-yolo_pass}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"
+    networks:
+      - yolo-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # HiveMQ MQTT Broker
+  hivemq:
+    image: hivemq/hivemq-ce:latest
+    container_name: yolo-hivemq
+    restart: unless-stopped
+    ports:
+      - "1883:1883"       # MQTT
+      - "8080:8080"       # Management Console
+      - "8000:8000"       # WebSocket
+    volumes:
+      - hivemq_data:/opt/hivemq/data
+      - hivemq_log:/opt/hivemq/log
+      - ./BE/mqtt-setup/hivemq-config:/opt/hivemq/conf
+    networks:
+      - yolo-network
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/1883'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # RTSP Simple Server (Camera Dummy)
+  rtsp-server:
+    build:
+      context: ./BE/rtsp-server
+      dockerfile: Dockerfile
+    container_name: yolo-rtsp-server
+    restart: unless-stopped
+    ports:
+      - "8554:8554"       # RTSP
+      - "1935:1935"       # RTMP
+      - "8888:8888"       # HLS
+    volumes:
+      - ./BE/camera-dummy/samples:/app/samples
+      - ./BE/rtsp-server/rtsp-simple-server.yml:/app/rtsp-simple-server.yml
+      # Optional: if you have rtsp-simple-server binary in the repo, mount it
+      - ./BE/rtsp-server/rtsp-simple-server:/app/rtsp-simple-server
+    networks:
+      - yolo-network
+    depends_on:
+      - hivemq
+
+  # Camera Dummy (RTSP Stream Generator)
+  camera-dummy:
+    build:
+      context: ./BE/camera-dummy
+      dockerfile: Dockerfile
+    container_name: yolo-camera-dummy
+    restart: unless-stopped
+    environment:
+      - RTSP_SERVER=rtsp-server:8554
+      - NUM_CAMERAS=3
+    volumes:
+      - ./BE/camera-dummy/samples:/app/samples
+    networks:
+      - yolo-network
+    depends_on:
+      - rtsp-server
+
+  # YOLOv12 Inference Service
+  yolo-inference:
+    build:
+      context: ./BE/inference-yolo
+      dockerfile: Dockerfile
+    container_name: yolo-inference
+    restart: unless-stopped
+    environment:
+      - RTSP_URLS=rtsp://rtsp-server:8554/cam01,rtsp://rtsp-server:8554/cam02,rtsp://rtsp-server:8554/cam03
+      - MQTT_BROKER=hivemq
+      - DB_HOST=mysql
+      - DB_ENABLED=${DB_ENABLED:-false}
+      - MODEL_DEVICE=${MODEL_DEVICE:-cpu}
+    volumes:
+      - ./BE/inference-yolo/models:/app/models
+      - ./BE/inference-yolo/logs:/app/logs
+      - inference_data:/app/data
+    networks:
+      - yolo-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      hivemq:
+        condition: service_healthy
+      camera-dummy:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # SFU MediaSoup Service
+  sfu-mediasoup:
+    build:
+      context: ./BE/sfu-mediasoup
+      dockerfile: Dockerfile
+    container_name: yolo-sfu
+    restart: unless-stopped
+    environment:
+      - RTSP_URLS=rtsp://rtsp-server:8554/cam01,rtsp://rtsp-server:8554/cam02,rtsp://rtsp-server:8554/cam03
+      - MEDIASOUP_ANNOUNCED_IP=${MEDIASOUP_ANNOUNCED_IP:-127.0.0.1}
+    ports:
+      - "3000:3000"       # SFU HTTP/WebSocket
+      - "10000-10100:10000-10100/udp"  # MediaSoup RTP
+    volumes:
+      - ./BE/sfu-mediasoup/logs:/app/logs
+      - ./BE/sfu-mediasoup/certs:/app/certs
+    networks:
+      - yolo-network
+    depends_on:
+      - camera-dummy
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Frontend Service (Optional)
+  frontend:
+    build:
+      context: ./FE
+      dockerfile: Dockerfile
+    container_name: yolo-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - SFU_URL=ws://localhost:3000
+      - MQTT_URL=ws://localhost:8000
+    networks:
+      - yolo-network
+    depends_on:
+      - sfu-mediasoup
+      - hivemq
+
+volumes:
+  mysql_data:
+    driver: local
+  hivemq_data:
+    driver: local
+  hivemq_log:
+    driver: local
+  inference_data:
+    driver: local
+
+networks:
+  yolo-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
