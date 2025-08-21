@@ -36,3 +36,6 @@ env/
 **/env/
 .env/
 **/.env/
+
+# Ignore HiveMQ runtime data directory (Docker volume mount)
+BE/mqtt-setup/hivemq-data/
