@@ -1,4 +1,4 @@
-// Simple FE app to play HLS streams and log MQTT detections
+// Simple FE app to play WebRTC streams from SFU and log MQTT detections
 const LOG = document.getElementById('log');
 const VIDEOS = document.getElementById('videos');
 
@@ -7,43 +7,30 @@ function log(msg){
   LOG.innerText = `[${t}] ${msg}\n` + LOG.innerText;
 }
 
-// Create 3 video cards for cam01..cam03 via HLS (rtsp-server provides HLS on :9888)
-const cams = ['cam01','cam02','cam03'];
+// Create 1 video card for cam01 (processed video with bounding boxes) via WebRTC from SFU
+const cams = ['cam01']; // Camera stream with YOLO detections via SFU
 for(const c of cams){
   const card = document.createElement('div');
   card.className = 'card';
   const title = document.createElement('h4');
-  title.innerText = c;
+  title.innerText = c + ' (WebRTC from SFU)';
   const video = document.createElement('video');
   video.controls = true;
-  video.autoplay = false;
+  video.autoplay = true;
   video.muted = true;
   video.playsInline = true;
 
-  const hlsUrl = `http://localhost:9888/${c}.m3u8`;
   const p = document.createElement('p');
-  p.innerHTML = `HLS: <a href="${hlsUrl}" target="_blank">${hlsUrl}</a>`;
+  p.innerHTML = `WebRTC Stream from SFU: ${c}`;
 
   card.appendChild(title);
   card.appendChild(video);
   card.appendChild(p);
   VIDEOS.appendChild(card);
 
-  if(Hls.isSupported()){
-    const hls = new Hls();
-    hls.loadSource(hlsUrl);
-    hls.attachMedia(video);
-    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      log(`HLS manifest parsed for ${c}`);
-    });
-    hls.on(Hls.Events.ERROR, (ev, data) => {
-      log(`HLS error for ${c}: ${data.type} ${data.details}`);
-    });
-  } else if (video.canPlayType('application/vnd.apple.mpegurl')){
-    video.src = hlsUrl;
-  } else {
-    log('HLS not supported in this browser');
-  }
+  // TODO: Implement WebRTC connection to SFU MediaSoup
+  // For now, show placeholder
+  log(`Setting up WebRTC for ${c} - SFU connection needed`);
 }
 
 // MQTT over WebSocket connection to HiveMQ (ws://localhost:8000)

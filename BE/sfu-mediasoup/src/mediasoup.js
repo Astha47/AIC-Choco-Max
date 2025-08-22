@@ -53,8 +53,11 @@ class MediaSoupService {
                         mimeType: 'video/H264',
                         clockRate: 90000,
                         parameters: {
+                            // Use baseline profile-level-id to match FFmpeg's "-profile:v baseline -level 3.1"
+                            // which corresponds to profile-level-id '42e01f'. This prevents mediasoup from
+                            // rejecting incoming H264 RTP producers encoded as baseline.
                             'packetization-mode': 1,
-                            'profile-level-id': '4d0032',
+                            'profile-level-id': '42e01f',
                             'level-asymmetry-allowed': 1,
                             'x-google-start-bitrate': 1000,
                         },

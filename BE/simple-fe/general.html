@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>General Viewing - HLS + MQTT</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 16px; background: #f5f5f5; }
+    .header { background: #2196F3; color: white; padding: 16px; border-radius: 6px; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(320px,1fr)); gap: 12px; }
+    .card { border: 1px solid #ddd; padding: 8px; border-radius: 6px; background: white; }
+    video { width: 100%; height: auto; background: #000; border-radius: 4px; }
+    #log { height: 200px; overflow: auto; background:#111; color:#0f0; padding:8px; font-family: monospace; font-size: 12px; border-radius: 4px; }
+    .badge { background: #4CAF50; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; }
+    .latency-info { background: #FFC107; color: black; padding: 8px; border-radius: 4px; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>🎥 General Viewing Dashboard</h2>
+    <p>HLS streaming for scalable viewing • <span class="badge">3-8 second latency</span></p>
+    <div class="latency-info">
+      <strong>Note:</strong> This view has 3-8 second latency but supports unlimited viewers. For real-time monitoring, use <a href="/security" style="color: #333;">Security Dashboard</a>.
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h4>📹 Camera 01 - Processed (with YOLO detections)</h4>
+      <video id="cam01_video" controls autoplay muted playsinline></video>
+      <p id="cam01_status">Loading HLS stream...</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 16px;">
+    <h3>📡 MQTT Detection Log</h3>
+    <div id="log">Connecting to MQTT...</div>
+  </div>
+
+  <script src="https://unpkg.com/hls.js@1.4.0/dist/hls.min.js"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="general.js"></script>
+</body>
+</html>

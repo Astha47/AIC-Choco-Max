@@ -25,7 +25,6 @@ from dotenv import load_dotenv
 from ultralytics import YOLO
 import torch
 import psutil
-from aiohttp import web
 
 # Load environment variables
 load_dotenv()
@@ -426,6 +425,123 @@ class CameraManager:
         # Mark camera as disabled when resources are released
         self.disabled = True
 
+
+class ProcessPublisher:
+    """Publish processed frames to RTSP server using FFmpeg via stdin.
+
+    Usage: create per-camera publisher; call write_frame(bgr_frame) for each
+    processed frame. Publisher is started lazily when first frame arrives.
+    """
+    def __init__(self, camera_id: str, rtsp_host: str = 'rtsp-server', rtsp_port: int = 8554):
+        self.camera_id = camera_id
+        self.rtsp_host = rtsp_host
+        self.rtsp_port = rtsp_port
+        self.process = None
+        self.width = None
+        self.height = None
+        self.framerate = 15
+
+    def start(self, width: int, height: int):
+        if self.process:
+            return
+        self.width = width
+        self.height = height
+        path = f"rtsp://{self.rtsp_host}:{self.rtsp_port}/{self.camera_id}_proc"
+
+        ffmpeg_cmd = [
+            'ffmpeg',
+            '-y',
+            '-f', 'rawvideo',
+            '-pix_fmt', 'bgr24',
+            '-s', f'{self.width}x{self.height}',
+            '-r', str(self.framerate),
+            '-i', '-',
+            '-c:v', 'libx264',
+            '-preset', 'ultrafast',
+            '-tune', 'zerolatency',
+            '-pix_fmt', 'yuv420p',
+            '-g', '30',  # keyframe every 30 frames
+            '-b:v', '1M',  # 1Mbps bitrate
+            '-maxrate', '1M',
+            '-bufsize', '2M',
+            '-f', 'rtsp',
+            '-rtsp_transport', 'tcp',  # force TCP instead of UDP
+            path
+        ]
+
+        try:
+            import subprocess
+            logging.getLogger(__name__).info(f"Starting ProcessPublisher for {self.camera_id}_proc: {' '.join(ffmpeg_cmd)}")
+            self.process = subprocess.Popen(
+                ffmpeg_cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            
+            # Log stderr for debugging
+            def _log_stderr(stderr):
+                try:
+                    for line in stderr:
+                        line_str = line.decode('utf-8', errors='ignore').strip()
+                        if line_str:
+                            logging.getLogger(__name__).debug(f"FFmpeg {self.camera_id}_proc: {line_str}")
+                except Exception:
+                    pass
+
+            import threading
+            if self.process.stderr:
+                t = threading.Thread(target=_log_stderr, args=(self.process.stderr,), daemon=True)
+                t.start()
+            logging.getLogger(__name__).info(f"ProcessPublisher started for {self.camera_id}_proc")
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Failed to start publisher for {self.camera_id}: {e}")
+            self.process = None
+
+    def write_frame(self, frame) -> bool:
+        """Write a BGR frame (numpy array) to ffmpeg stdin. Returns False on failure."""
+        if frame is None:
+            return False
+        h, w = frame.shape[:2]
+        if not self.process:
+            logging.getLogger(__name__).info(f"Starting ProcessPublisher on first frame for {self.camera_id}_proc ({w}x{h})")
+            self.start(w, h)
+            if not self.process:
+                logging.getLogger(__name__).error(f"ProcessPublisher failed to start for {self.camera_id}_proc")
+                return False
+
+        try:
+            # Ensure frame size matches
+            if w != self.width or h != self.height:
+                # If size changed, restart process with new size
+                self.stop()
+                self.start(w, h)
+                if not self.process:
+                    return False
+
+            # Write raw BGR bytes
+            self.process.stdin.write(frame.tobytes())
+            return True
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Failed to write frame for {self.camera_id}: {e}")
+            return False
+
+    def stop(self):
+        try:
+            if self.process:
+                try:
+                    if self.process.stdin:
+                        self.process.stdin.close()
+                except Exception:
+                    pass
+                try:
+                    self.process.terminate()
+                except Exception:
+                    pass
+                self.process = None
+        except Exception:
+            pass
+
 class InferenceService:
     """Main inference service orchestrator"""
     
@@ -474,19 +590,36 @@ class InferenceService:
         signal.signal(signal.SIGTERM, signal_handler)
 
     def _start_health_server(self):
-        """Start a minimal aiohttp health server in a background thread.
+        """Start a minimal HTTP health server using built-in http.server.
 
         The Dockerfile healthcheck polls http://localhost:8000/health, so this
         exposes that endpoint on 0.0.0.0:8000 inside the container.
         """
-        async def _health(request):
-            return web.json_response({"status": "ok"})
+        import http.server
+        import socketserver
+        from urllib.parse import urlparse
+
+        class HealthHandler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == '/health':
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(b'{"status": "ok"}')
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+            
+            def log_message(self, format, *args):
+                # Suppress default logging to avoid spam
+                pass
 
         def _run():
-            app = web.Application()
-            app.router.add_get('/health', _health)
-            # web.run_app will block; run in a daemon thread
-            web.run_app(app, host='0.0.0.0', port=8000)
+            try:
+                with socketserver.TCPServer(("0.0.0.0", 8000), HealthHandler) as httpd:
+                    httpd.serve_forever()
+            except Exception as e:
+                self.logger.error(f"Health server error: {e}")
 
         t = threading.Thread(target=_run, daemon=True)
         t.start()
@@ -518,7 +651,9 @@ class InferenceService:
         """Process frames from a single camera"""
         camera = self.cameras[camera_id]
         frame_skip_counter = 0
-        
+        # Publisher for processed frames (streams to rtsp-server as <camera_id>_proc)
+        publisher = ProcessPublisher(camera_id, rtsp_host='rtsp-server', rtsp_port=8554)
+
         while self.running:
             try:
                 # Exit the loop if camera has been auto-disabled
@@ -543,10 +678,10 @@ class InferenceService:
                 
                 if detections:
                     self.logger.debug(f"Camera {camera_id}: {len(detections)} detections")
-                    
+
                     # Publish to MQTT
                     self.mqtt_manager.publish_detection(camera_id, detections)
-                    
+
                     # Log to database
                     for detection in detections:
                         self.db_manager.log_detection(
@@ -556,6 +691,29 @@ class InferenceService:
                             detection["confidence"],
                             detection["bbox"]
                         )
+
+                # Draw boxes on frame for publishing to SFU
+                try:
+                    import cv2
+                    for det in detections:
+                        x_center, y_center, w_norm, h_norm = det['bbox']
+                        h, w = frame.shape[:2]
+                        x = int((x_center - w_norm/2) * w)
+                        y = int((y_center - h_norm/2) * h)
+                        ww = int(w_norm * w)
+                        hh = int(h_norm * h)
+                        cv2.rectangle(frame, (x, y), (x+ww, y+hh), (0,255,0), 2)
+                        cv2.putText(frame, f"{det['label']}:{det['confidence']:.2f}", (x, max(0,y-6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
+                except Exception as e:
+                    self.logger.debug(f"Failed to draw boxes for {camera_id}: {e}")
+
+                # Always stream processed frame to RTSP server (with or without detections)
+                try:
+                    success = publisher.write_frame(frame)
+                    if not success:
+                        self.logger.debug(f"Failed to stream frame for {camera_id}")
+                except Exception as e:
+                    self.logger.debug(f"Exception streaming frame for {camera_id}: {e}")
                 
                 # Rate limiting
                 time.sleep(self.config.INFERENCE_INTERVAL)

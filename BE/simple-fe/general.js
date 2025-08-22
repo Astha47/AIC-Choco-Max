@@ -1,0 +1,98 @@
+// General viewing - HLS + MQTT
+const LOG = document.getElementById('log');
+const video = document.getElementById('cam01_video');
+const status = document.getElementById('cam01_status');
+
+function log(msg) {
+  const t = new Date().toISOString();
+  LOG.innerText = `[${t}] ${msg}\n` + LOG.innerText;
+}
+
+// Setup HLS for processed camera stream
+const hlsUrl = 'http://localhost:9888/cam01_proc/index.m3u8';
+
+if (Hls.isSupported()) {
+  const hls = new Hls({
+    enableWorker: false,
+    lowLatencyMode: false,
+    backBufferLength: 90
+  });
+  
+  hls.loadSource(hlsUrl);
+  hls.attachMedia(video);
+  
+  hls.on(Hls.Events.MANIFEST_PARSED, () => {
+    log('HLS stream connected - processed video with YOLO detections');
+    status.innerHTML = `✅ Connected: <a href="${hlsUrl}" target="_blank">${hlsUrl}</a>`;
+    status.style.color = 'green';
+  });
+  
+  hls.on(Hls.Events.ERROR, (event, data) => {
+    log(`HLS error: ${data.type} - ${data.details}`);
+    if (data.fatal) {
+      status.innerHTML = `❌ Connection failed: ${data.details}`;
+      status.style.color = 'red';
+      
+      // Retry after 5 seconds
+      setTimeout(() => {
+        log('Retrying HLS connection...');
+        hls.loadSource(hlsUrl);
+      }, 5000);
+    }
+  });
+  
+} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+  // Safari native HLS support
+  video.src = hlsUrl;
+  log('Using native HLS support');
+  status.innerHTML = `✅ Connected (native): ${hlsUrl}`;
+} else {
+  log('HLS not supported in this browser');
+  status.innerHTML = '❌ HLS not supported in this browser';
+  status.style.color = 'red';
+}
+
+// MQTT connection for real-time alerts
+const mqttUrl = 'ws://localhost:8000/mqtt';
+log(`Connecting to MQTT: ${mqttUrl}`);
+
+const client = mqtt.connect(mqttUrl);
+
+client.on('connect', () => {
+  log('✅ MQTT connected - ready for detection alerts');
+  client.subscribe('cameras/+/detections', (err) => {
+    if (err) {
+      log('❌ MQTT subscribe error: ' + err);
+    } else {
+      log('📡 Subscribed to detection alerts');
+    }
+  });
+});
+
+client.on('message', (topic, payload) => {
+  try {
+    const data = JSON.parse(payload.toString());
+    const camera = topic.split('/')[1];
+    
+    // Show alert with detection info
+    if (data.detections && data.detections.length > 0) {
+      const objects = data.detections.map(d => `${d.label} (${Math.round(d.confidence * 100)}%)`).join(', ');
+      log(`🚨 DETECTION [${camera}]: ${objects}`);
+    }
+  } catch (e) {
+    log(`📨 ${topic}: ${payload.toString()}`);
+  }
+});
+
+client.on('error', (err) => {
+  log('❌ MQTT error: ' + err);
+});
+
+client.on('close', () => {
+  log('🔌 MQTT connection closed');
+});
+
+// Show initial info
+log('🎥 General Viewing Dashboard loaded');
+log('📺 Video: HLS stream with 3-8 second latency');
+log('📡 Alerts: Real-time via MQTT');

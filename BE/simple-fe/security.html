@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Security Dashboard - WebRTC + MQTT</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 16px; background: #1a1a1a; color: white; }
+    .header { background: #d32f2f; color: white; padding: 16px; border-radius: 6px; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(320px,1fr)); gap: 12px; }
+    .card { border: 1px solid #333; padding: 8px; border-radius: 6px; background: #2a2a2a; }
+    video { width: 100%; height: auto; background: #000; border-radius: 4px; }
+    #log { height: 200px; overflow: auto; background:#111; color:#0f0; padding:8px; font-family: monospace; font-size: 12px; border-radius: 4px; }
+    .badge { background: #f44336; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; }
+    .realtime-info { background: #4CAF50; color: white; padding: 8px; border-radius: 4px; margin-bottom: 8px; }
+    .controls { margin: 8px 0; }
+    .btn { background: #2196F3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 8px; }
+    .btn:hover { background: #1976D2; }
+    .btn.danger { background: #f44336; }
+    .btn.danger:hover { background: #d32f2f; }
+    .status { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+    .status.connected { background: #4CAF50; }
+    .status.connecting { background: #FF9800; }
+    .status.error { background: #f44336; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>🛡️ Security Dashboard</h2>
+    <p>Real-time WebRTC streaming for security personnel • <span class="badge">&lt;1 second latency</span></p>
+    <div class="realtime-info">
+      <strong>REAL-TIME:</strong> Ultra-low latency for immediate threat response. Switch to <a href="/general" style="color: #fff;">General View</a> for scalable monitoring.
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h4>📹 Camera 01 - Live Security Feed</h4>
+      <video id="cam01_video" autoplay muted playsinline></video>
+      <div class="controls">
+        <button id="connect_btn" class="btn">🔴 Connect WebRTC</button>
+        <button id="disconnect_btn" class="btn danger" disabled>⏹️ Disconnect</button>
+        <span id="connection_status" class="status connecting">Waiting</span>
+      </div>
+      <p id="cam01_info">Click Connect to start real-time WebRTC stream</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🚨 Security Alert Log</h3>
+    <div id="log">Connecting to security alert system...</div>
+  </div>
+
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="security.js"></script>
+</body>
+</html>

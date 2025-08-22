@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # MySQL Database
   mysql:
@@ -89,7 +87,8 @@ services:
     container_name: yolo-inference
     restart: unless-stopped
     environment:
-      - RTSP_URLS=rtsp://rtsp-server:8554/cam01,rtsp://rtsp-server:8554/cam02,rtsp://rtsp-server:8554/cam03
+      - RTSP_URLS=rtsp://rtsp-server:8554/cam01
+      - CAMERA_COUNT=1
       - MQTT_BROKER=hivemq
       - DB_HOST=mysql
       - DB_ENABLED=${DB_ENABLED:-false}
@@ -122,7 +121,7 @@ services:
     container_name: yolo-sfu
     restart: unless-stopped
     environment:
-      - RTSP_URLS=rtsp://rtsp-server:8554/cam01,rtsp://rtsp-server:8554/cam02,rtsp://rtsp-server:8554/cam03
+      - RTSP_URLS=rtsp://rtsp-server:8554/cam01_proc
       - MEDIASOUP_ANNOUNCED_IP=${MEDIASOUP_ANNOUNCED_IP:-127.0.0.1}
     ports:
       - "3000:3000"       # SFU HTTP/WebSocket

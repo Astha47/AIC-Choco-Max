@@ -6,7 +6,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = parseInt(process.env.PORT || process.argv[2] || '8080', 10);
+const PORT = parseInt(process.env.PORT || process.argv[2] || '3003', 10);
 const ROOT = path.resolve(__dirname);
 
 const MIME = {
@@ -42,12 +42,16 @@ const server = http.createServer((req, res) => {
     const urlPath = decodeURIComponent(req.url.split('?')[0]);
     let filePath = path.join(ROOT, urlPath);
 
-    // If directory, serve index.html
-    if (filePath.endsWith(path.sep)) filePath = path.join(filePath, 'index.html');
-
-    // If path is root, point to index.html
+    // Routing for different dashboards
     if (urlPath === '/' || urlPath === '') {
-      filePath = path.join(ROOT, 'index.html');
+      // Default to general viewing
+      filePath = path.join(ROOT, 'general.html');
+    } else if (urlPath === '/general') {
+      filePath = path.join(ROOT, 'general.html');
+    } else if (urlPath === '/security') {
+      filePath = path.join(ROOT, 'security.html');
+    } else if (filePath.endsWith(path.sep)) {
+      filePath = path.join(filePath, 'index.html');
     }
 
     // Prevent path traversal

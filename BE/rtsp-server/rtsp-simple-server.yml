@@ -132,8 +132,8 @@ hlsServerKey: server.key
 # Path to the server certificate.
 hlsServerCert: server.crt
 # By default, HLS is generated only when requested by a user.
-# This option allows to generate it always, avoiding the delay between request and generation.
-hlsAlwaysRemux: no
+# Set it to yes to always generate HLS, whether someone is reading or not.
+hlsAlwaysRemux: yes
 # Variant of the HLS protocol to use. Available options are:
 # * mpegts - uses MPEG-TS segments, for maximum compatibility.
 # * fmp4 - uses fragmented MP4 segments, more efficient.
