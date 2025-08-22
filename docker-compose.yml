@@ -140,6 +140,20 @@ services:
         reservations:
           memory: 512M
 
+  # Simple Frontend static server
+  simple-fe:
+    build:
+      context: ./BE/simple-fe
+      dockerfile: Dockerfile
+    container_name: simple-fe
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    networks:
+      - yolo-network
+    depends_on:
+      - rtsp-server
+
 
 
 volumes:
