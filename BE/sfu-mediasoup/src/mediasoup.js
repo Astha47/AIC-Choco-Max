@@ -4,12 +4,23 @@ class MediaSoupService {
     constructor() {
         this.worker = null;
         this.router = null;
+        // Normalize and validate worker settings coming from env
+        const allowedWorkerLogLevels = ['debug', 'warn', 'error', 'none'];
+        let envLogLevel = (process.env.LOG_LEVEL || 'warn').toLowerCase();
+        if (!allowedWorkerLogLevels.includes(envLogLevel)) {
+            // Keep this as console output since logger isn't initialized yet
+            console.warn(
+                `Invalid LOG_LEVEL '${process.env.LOG_LEVEL}' - falling back to 'warn'. Valid values: ${allowedWorkerLogLevels.join(', ')}`
+            );
+            envLogLevel = 'warn';
+        }
+
         this.config = {
             // Worker settings
             worker: {
                 rtcMinPort: parseInt(process.env.MEDIASOUP_MIN_PORT) || 10000,
                 rtcMaxPort: parseInt(process.env.MEDIASOUP_MAX_PORT) || 10100,
-                logLevel: process.env.LOG_LEVEL || 'warn',
+                logLevel: envLogLevel,
                 logTags: [
                     'info',
                     'ice',

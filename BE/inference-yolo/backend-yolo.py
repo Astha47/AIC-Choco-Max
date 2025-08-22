@@ -25,6 +25,7 @@ from dotenv import load_dotenv
 from ultralytics import YOLO
 import torch
 import psutil
+from aiohttp import web
 
 # Load environment variables
 load_dotenv()
@@ -432,6 +433,12 @@ class InferenceService:
         self.config = Config()
         self.logger = self._setup_logging()
         self.running = False
+        # Start a lightweight HTTP health endpoint used by the Docker healthcheck
+        try:
+            self._start_health_server()
+        except Exception as e:
+            # Don't fail service init if health server can't start
+            self.logger.warning(f"Failed to start health server: {e}")
         
         # Initialize components
         self.db_manager = DatabaseManager(self.config)
@@ -465,6 +472,25 @@ class InferenceService:
         
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
+
+    def _start_health_server(self):
+        """Start a minimal aiohttp health server in a background thread.
+
+        The Dockerfile healthcheck polls http://localhost:8000/health, so this
+        exposes that endpoint on 0.0.0.0:8000 inside the container.
+        """
+        async def _health(request):
+            return web.json_response({"status": "ok"})
+
+        def _run():
+            app = web.Application()
+            app.router.add_get('/health', _health)
+            # web.run_app will block; run in a daemon thread
+            web.run_app(app, host='0.0.0.0', port=8000)
+
+        t = threading.Thread(target=_run, daemon=True)
+        t.start()
+        self.logger.info("Health server started on 0.0.0.0:8000")
     
     def _initialize_cameras(self):
         """Initialize camera connections"""

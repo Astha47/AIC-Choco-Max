@@ -1,0 +1,60 @@
+Docker Compose port mappings (from docker-compose.yml):
+
+- service: mysql (container: yolo-mysql)
+  host:container -> 3307:3306
+
+- service: hivemq (container: yolo-hivemq)
+  host:container -> 1883:1883  (MQTT)
+  host:container -> 8080:8080  (Management Console)
+  host:container -> 8000:8000  (WebSocket)
+
+- service: rtsp-server (container: yolo-rtsp-server)
+  host:container -> 8554:8554  (RTSP)
+  host:container -> 1935:1935  (RTMP)
+  host:container -> 9888:8888  (HLS; host 9888 -> container 8888)
+
+- service: sfu-mediasoup (container: yolo-sfu)
+  host:container -> 3000:3000  (SFU HTTP/WebSocket)
+  host:container -> 10000-10100:10000-10100/udp  (Media RTP range)
+
+Other services in compose do not publish host ports (camera-dummy, yolo-inference rely on internal network links).
+
+Current host listening ports (selected relevant lines from `ss -ltnp` / `ss -lunp`):
+
+- TCP listeners (host):
+  - 0.0.0.0:22        (SSH)
+  - 0.0.0.0:80        (HTTP)
+  - 0.0.0.0:111       (rpcbind)
+  - 127.0.0.1:3306    (local MySQL)
+  - 127.0.0.1:33060   (MySQL/X Plugin or other local service)
+  - 127.0.0.1:37591   (VS Code / extension socket)
+  - [::]:22, [::]:80, [::]:111, etc.
+
+- UDP listeners (host):
+  - no listeners found in 10000-10100 range (checked with ss -lunp)
+
+Conflict analysis (matches between compose host ports and host listeners):
+
+- 3307 (compose -> mysql) : NOT in use on host (host has 3306 and 33060). No direct conflict.
+- 1883, 8080, 8000 (hivemq) : NOT currently listening on host. No conflict detected.
+- 8554, 1935, 9888 (rtsp-server) : NOT currently listening on host. No conflict detected.
+- 3000 (sfu-mediasoup) : NOT currently listening on host. No conflict detected.
+- 10000-10100/udp (sfu-mediasoup) : No UDP listeners present in that range on host. No conflict detected.
+
+Summary conclusion:
+
+- I found no direct host port conflicts with the ports published in `docker-compose.yml`. The file already avoids obvious conflicts (e.g., MySQL host port is 3307, HLS host port set to 9888).
+
+Recommendations / next steps if you still see "network interrupted" in VS Code Copilot when starting all containers:
+
+1) Resource contention: starting many containers (inference, SFU, mediaserver, etc.) may saturate CPU, memory, or network bandwidth and cause VS Code extension timeouts — check CPU/RAM and dmesg/syslog for OOM or throttle events.
+2) Check VS Code logs / proxy: the workspace shows VS Code sockets listening locally (127.0.0.1:37591, 127.0.0.1:35513). If containers bind 0.0.0.0 and create heavy network chatter, consider disabling host-port publishing for services not needed externally or run compose with fewer services.
+3) If you want, I can:
+   - bring up the full compose and monitor journal/syslog/`docker logs` for services that coincide with the time Copilot drops.
+   - adjust problematic published ports to ephemeral ones or remove external publishing for purely internal services.
+
+Files checked to produce this report:
+- docker-compose.yml (top-level)
+- host listeners via `ss -ltnp` and `ss -lunp`
+
+Status: no port collisions detected between docker-compose host ports and current host listeners.

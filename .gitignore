@@ -37,5 +37,9 @@ env/
 .env/
 **/.env/
 
+# Ignore Node.js dependencies
+node_modules/
+**/node_modules/
+
 # Ignore HiveMQ runtime data directory (Docker volume mount)
 BE/mqtt-setup/hivemq-data/
