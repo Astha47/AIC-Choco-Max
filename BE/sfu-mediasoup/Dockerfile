@@ -4,8 +4,15 @@ FROM node:20-slim
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     python3 \
+    python3-pip \
     make \
     g++ \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    libudev-dev \
+    ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
