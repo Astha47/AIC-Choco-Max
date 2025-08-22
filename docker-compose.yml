@@ -32,7 +32,7 @@ services:
       - "8000:8000"       # WebSocket
     volumes:
       - hivemq_data:/opt/hivemq/data
-      - hivemq_log:/opt/hivemq/log
+      - ./logs/hivemq:/opt/hivemq/log
       - ./BE/mqtt-setup/hivemq-config:/opt/hivemq/conf
     networks:
       - yolo-network
@@ -151,6 +151,7 @@ volumes:
     driver: local
   inference_data:
     driver: local
+  # hivemq_log removed in favor of a host bind-mount at ./logs/hivemq
 
 networks:
   yolo-network:
