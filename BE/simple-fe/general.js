@@ -8,9 +8,13 @@ function log(msg) {
   LOG.innerText = `[${t}] ${msg}\n` + LOG.innerText;
 }
 
+// Debug: Check if config is loaded
+console.log('Config loaded:', window.__APP_CONFIG__);
+
 // Setup HLS for processed camera stream
 const HLS_BASE = (window.__APP_CONFIG__ && window.__APP_CONFIG__.HLS_URL) || 'http://localhost:9888';
 const hlsUrl = `${HLS_BASE}/cam01_proc/index.m3u8`;
+console.log('Using HLS URL:', hlsUrl);
 
 if (Hls.isSupported()) {
   const hls = new Hls({
@@ -55,6 +59,7 @@ if (Hls.isSupported()) {
 
 // MQTT connection for real-time alerts
 const MQTT_WS = (window.__APP_CONFIG__ && window.__APP_CONFIG__.MQTT_WS_URL) || 'ws://localhost:8000/mqtt';
+console.log('Using MQTT URL:', MQTT_WS);
 log(`Connecting to MQTT: ${MQTT_WS}`);
 
 const client = mqtt.connect(MQTT_WS);

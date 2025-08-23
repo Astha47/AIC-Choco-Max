@@ -35,6 +35,7 @@ for(const c of cams){
 
 // MQTT over WebSocket connection to HiveMQ
 const mqttUrl = (window.__APP_CONFIG__ && window.__APP_CONFIG__.MQTT_WS_URL) || 'ws://localhost:8000/mqtt'; // HiveMQ WebSocket endpoint mapping
+console.log('App.js using MQTT URL:', mqttUrl);
 log(`Connecting to MQTT ${mqttUrl}`);
 const client = mqtt.connect(mqttUrl);
 client.on('connect', () => {
