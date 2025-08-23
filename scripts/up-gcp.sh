@@ -23,24 +23,21 @@ set -a
 set +a
 
 echo "Starting in GCP mode with PUBLIC_IP=${PUBLIC_IP}"
-# Create a temporary docker-compose override to enable GPU image/build and request GPU devices
-GPU_OVERRIDE_FILE=.docker-compose.gpu.local.yml
-cat > ${GPU_OVERRIDE_FILE} <<'YAML'
-services:
-  yolo-inference:
-    build:
-      context: ./BE/inference-yolo
-      dockerfile: Dockerfile.cuda
-    environment:
-      - MODEL_DEVICE=cuda
-    # Request GPUs via Compose device_requests (requires Docker Engine & NVIDIA Container Toolkit)
-    device_requests:
-      - driver: nvidia
-        count: all
-        capabilities: [gpu]
-YAML
 
-docker compose --env-file .env.gcp.local -f docker-compose.yml -f docker-compose.gcp.yml -f ${GPU_OVERRIDE_FILE} --profile gcp up --build
+# Build the GPU-enabled image for inference (uses Dockerfile.cuda)
+print_status "Building GPU-enabled inference image..."
+(
+  cd BE/inference-yolo
+  ./run.sh --gpu-build
+)
+
+# Bring up the rest of the stack but do not start the compose-managed yolo-inference service
+# (we'll run it separately so we can pass --gpus). Compose accepts --scale to set replicas to 0.
+docker compose --env-file .env.gcp.local -f docker-compose.yml -f docker-compose.gcp.yml --profile gcp up --build --scale yolo-inference=0 -d
+
+# Start the GPU-enabled inference container separately (detached)
+print_status "Starting GPU-enabled inference container..."
+(cd BE/inference-yolo && ./run.sh --gpu -d)
 
 echo "Simple FE should be available at http://${PUBLIC_IP}:3003"
 
