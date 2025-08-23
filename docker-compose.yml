@@ -140,6 +140,27 @@ services:
         reservations:
           memory: 512M
 
+  # Simple Frontend (static) - configurable at runtime via JS config
+  simple-fe:
+    build:
+      context: ./BE/simple-fe
+      dockerfile: Dockerfile
+    container_name: simple-fe
+    restart: unless-stopped
+    environment:
+      - PORT=${FE_PORT:-3003}
+      - HLS_HOST=${HLS_HOST:-localhost}
+      - HLS_PORT=${HLS_PORT:-9888}
+      - MQTT_HOST=${MQTT_HOST:-localhost}
+      - MQTT_WS_PORT=${MQTT_WS_PORT:-8000}
+    ports:
+      - "${FE_PORT:-3003}:3003"
+    networks:
+      - yolo-network
+    depends_on:
+      - sfu-mediasoup
+      - hivemq
+
 
 
 volumes:

@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  simple-fe:
+    environment:
+      - HLS_HOST=${PUBLIC_IP}
+      - HLS_PORT=9888
+      - MQTT_HOST=${PUBLIC_IP}
+      - MQTT_WS_PORT=8000
+    ports:
+      - "80:3003"
+    profiles:
+      - gcp
