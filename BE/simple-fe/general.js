@@ -9,7 +9,8 @@ function log(msg) {
 }
 
 // Setup HLS for processed camera stream
-const hlsUrl = 'http://localhost:9888/cam01_proc/index.m3u8';
+const HLS_BASE = (window.__APP_CONFIG__ && window.__APP_CONFIG__.HLS_URL) || 'http://localhost:9888';
+const hlsUrl = `${HLS_BASE}/cam01_proc/index.m3u8`;
 
 if (Hls.isSupported()) {
   const hls = new Hls({
@@ -53,10 +54,10 @@ if (Hls.isSupported()) {
 }
 
 // MQTT connection for real-time alerts
-const mqttUrl = 'ws://localhost:8000/mqtt';
-log(`Connecting to MQTT: ${mqttUrl}`);
+const MQTT_WS = (window.__APP_CONFIG__ && window.__APP_CONFIG__.MQTT_WS_URL) || 'ws://localhost:8000/mqtt';
+log(`Connecting to MQTT: ${MQTT_WS}`);
 
-const client = mqtt.connect(mqttUrl);
+const client = mqtt.connect(MQTT_WS);
 
 client.on('connect', () => {
   log('✅ MQTT connected - ready for detection alerts');
