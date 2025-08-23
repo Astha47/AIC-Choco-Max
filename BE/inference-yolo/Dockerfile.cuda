@@ -1,0 +1,52 @@
+FROM pytorch/pytorch:2.0.1-cuda11.8-cudnn8-runtime
+
+# Use a CUDA-enabled PyTorch base image so torch has GPU support.
+# We avoid re-installing torch/torchvision from pip to keep the CUDA build
+
+WORKDIR /app
+
+# Install system dependencies (similar to the slim Dockerfile)
+RUN apt-get update && apt-get install -y \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libgtk-3-0 \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libgstreamer1.0-0 \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav \
+    gstreamer1.0-tools \
+    libgstreamer-plugins-base1.0-dev \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy application requirements and install Python deps.
+# We filter out torch/torchvision from pip install because the base image
+# already provides CUDA-enabled torch. This prevents accidentally installing
+# a CPU-only torch wheel.
+COPY requirements.txt .
+RUN sed -E '/^torch==|^torchvision==/d' requirements.txt > /tmp/reqs_no_torch.txt \
+ && pip install --no-cache-dir -r /tmp/reqs_no_torch.txt
+
+# Copy application code
+COPY . .
+
+# Ensure models directory exists
+RUN mkdir -p models
+
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+
+CMD ["python", "backend-yolo.py"]
