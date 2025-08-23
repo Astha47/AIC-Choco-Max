@@ -20,7 +20,7 @@ set -a
 set +a
 
 echo "Starting in GCP mode with PUBLIC_IP=${PUBLIC_IP}"
-docker compose --env-file .env.gcp.local -f docker-compose.yml -f docker-compose.gcp.yml --profile gcp up -d --build
+docker compose --env-file .env.gcp.local -f docker-compose.yml -f docker-compose.gcp.yml --profile gcp up  --build
 
 echo "Simple FE should be available at http://${PUBLIC_IP}"
 
