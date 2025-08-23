@@ -13,6 +13,6 @@ set -a
 set +a
 
 echo "Starting in DEV mode (profile: dev)"
-docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml --profile dev up -d --build
+docker compose --env-file .env.dev -f docker-compose.yml -f docker-compose.dev.yml --profile dev up --build
 
 echo "Simple FE should be available at http://localhost:${FE_PORT}"
