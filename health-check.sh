@@ -65,11 +65,11 @@ check_service_endpoints() {
     fi
     
     # MQTT Web Console
-    if curl -s -f http://localhost:8080 > /dev/null 2>&1; then
-        print_status "✓ MQTT Console (http://localhost:8080)"
-    else
-        print_warning "✗ MQTT Console (http://localhost:8080) - not responding"
-    fi
+        if curl -s -f http://localhost:18080 > /dev/null 2>&1; then
+            print_status "✓ MQTT Console (http://localhost:18080)"
+        else
+            print_warning "✗ MQTT Console (http://localhost:18080) - not responding"
+        fi
     
     # MySQL Database
     if docker exec yolo-mysql mysqladmin ping -h localhost --silent 2>/dev/null; then

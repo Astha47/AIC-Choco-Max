@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
     ports:
       - "1883:1883"       # MQTT
-      - "8080:8080"       # Management Console
+      - "18080:8080"       # Management Console (host:container -> 18080:8080)
       - "8000:8000"       # WebSocket
     volumes:
       - hivemq_data:/opt/hivemq/data
@@ -140,6 +140,7 @@ services:
         reservations:
           memory: 512M
 
+
   # Simple Frontend (static) - configurable at runtime via JS config
   simple-fe:
     build:
@@ -147,6 +148,7 @@ services:
       dockerfile: Dockerfile
     container_name: simple-fe
     restart: unless-stopped
+
     environment:
       - PORT=${FE_PORT:-3003}
       - HLS_HOST=${HLS_HOST:-localhost}
@@ -160,6 +162,7 @@ services:
     depends_on:
       - sfu-mediasoup
       - hivemq
+
 
 
 
