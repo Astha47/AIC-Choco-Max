@@ -475,7 +475,7 @@ class ProcessPublisher:
             self.process = subprocess.Popen(
                 ffmpeg_cmd,
                 stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE
             )
             
@@ -520,10 +520,37 @@ class ProcessPublisher:
                     return False
 
             # Write raw BGR bytes
-            self.process.stdin.write(frame.tobytes())
+            try:
+                self.process.stdin.write(frame.tobytes())
+                # flush to ensure ffmpeg receives the input promptly and to detect broken pipes
+                try:
+                    self.process.stdin.flush()
+                except Exception:
+                    pass
+            except BrokenPipeError:
+                logging.getLogger(__name__).warning(f"Broken pipe when writing frame for {self.camera_id}_proc - restarting publisher")
+                # Attempt to restart publisher once
+                self.stop()
+                self.start(w, h)
+                if not self.process:
+                    return False
+                try:
+                    self.process.stdin.write(frame.tobytes())
+                    try:
+                        self.process.stdin.flush()
+                    except Exception:
+                        pass
+                except Exception as e:
+                    logging.getLogger(__name__).error(f"Retry write failed for {self.camera_id}_proc: {e}")
+                    return False
             return True
         except Exception as e:
             logging.getLogger(__name__).error(f"Failed to write frame for {self.camera_id}: {e}")
+            # If any write error happens, ensure the process is stopped so future writes will recreate it
+            try:
+                self.stop()
+            except Exception:
+                pass
             return False
 
     def stop(self):
