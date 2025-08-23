@@ -142,25 +142,25 @@ if [ "$DETACHED" = true ]; then
     print_status "Waiting for services to start..."
     sleep 10
     
-    # Show service status
-    print_header "Service Status"
-    docker-compose ps
-    
-    # Show service URLs
-    print_header "Service URLs"
-    cat << EOF
-📊 SFU Service:          http://localhost:3000
-📡 MQTT Console:         http://localhost:8080  
-🗄️  Database (MySQL):    localhost:3307
-📹 RTSP Streams:         rtsp://localhost:8554/cam[1-3]
-🎥 Camera Dummy:         Running (generating streams)
-🤖 YOLO Inference:       Running (processing detections)
+                # Show service URLs
+                print_header "Service URLs"
+                cat << EOF
+SFU Service:          http://localhost:3000
+MQTT Console:         http://localhost:18080
+Database (MySQL):     localhost:3307
+RTSP Streams:         rtsp://localhost:8554/cam[1-3]
+Camera Dummy:         Running (generating streams)
+YOLO Inference:       Running (processing detections)
 
 Useful Commands:
-  View logs:      docker-compose logs -f [service-name]
-  Stop services:  docker-compose down
-  Restart:        docker-compose restart [service-name]
-  Scale:          docker-compose up -d --scale yolo-inference=2
+    View logs:      docker-compose logs -f [service-name]
+    Stop services:  docker-compose down
+    Restart:        docker-compose restart [service-name]
+    Scale:          docker-compose up -d --scale yolo-inference=2
+
+EOF
+    Restart:        docker-compose restart [service-name]
+    Scale:          docker-compose up -d --scale yolo-inference=2
 
 EOF
     

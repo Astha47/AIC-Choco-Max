@@ -46,7 +46,7 @@ HiveMQ is chosen over Mosquitto because:
 ## Configuration
 
 - **MQTT Port**: 1883
-- **Web Interface**: http://localhost:8080
+- **Web Interface**: http://localhost:18080
 - **Container Name**: hivemq-ce
 - **Data Directory**: ./hivemq-data
 
@@ -87,7 +87,7 @@ client.publish('sensors/temperature', '25.5');
 ## Management
 
 ### Web Interface
-Access HiveMQ management console at: **http://localhost:8080**
+Access HiveMQ management console at: **http://localhost:18080**
 
 Features available:
 - Real-time client connections
@@ -182,7 +182,7 @@ HiveMQ CE provides a **clear upgrade path** to Enterprise features:
 ## Next Steps
 
 1. **Development**: Start building with HiveMQ using the examples above
-2. **Monitoring**: Explore the web interface at http://localhost:8080
+2. **Monitoring**: Explore the web interface at http://localhost:18080
 3. **Security**: Configure authentication for production use
 4. **Scale**: Consider HiveMQ Enterprise for production deployments
 

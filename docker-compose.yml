@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
     ports:
       - "1883:1883"       # MQTT
-      - "8080:8080"       # Management Console
+      - "18080:8080"       # Management Console (host:container -> 18080:8080)
       - "8000:8000"       # WebSocket
     volumes:
       - hivemq_data:/opt/hivemq/data

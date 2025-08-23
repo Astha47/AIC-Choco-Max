@@ -8,7 +8,7 @@ set -euo pipefail
 MODE=""
 STOP_EXISTING=0
 MQTT_PORT=1883
-HTTP_PORT=8080
+HTTP_PORT=18080
 CONTAINER_NAME="hivemq-ce"
 DOCKER_IMAGE="hivemq/hivemq4:latest"
 
@@ -78,7 +78,11 @@ run_docker(){
   docker pull "$DOCKER_IMAGE"
 
   echo "Starting container '$CONTAINER_NAME' mapping MQTT:$MQTT_PORT and HTTP:$HTTP_PORT"
-  docker run -d --name "$CONTAINER_NAME" -p "$MQTT_PORT":1883 -p "$MQTT_PORT":1883/udp -p "$HTTP_PORT":8080 -v "$PWD/hivemq-data":/opt/hivemq/data "$DOCKER_IMAGE"
+  docker run -d --name "$CONTAINER_NAME" \
+    -p "$MQTT_PORT":1883 \
+    -p "$MQTT_PORT":1883/udp \
+    -p "$HTTP_PORT":8080 \
+    -v "$PWD/hivemq-data":/opt/hivemq/data "$DOCKER_IMAGE"
   echo "Started container. Use: docker logs -f $CONTAINER_NAME"
 }
 
