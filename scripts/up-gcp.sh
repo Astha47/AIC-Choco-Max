@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
-if [ -z "$1" ]; then
+ifecho "Starting in GCP mode with PUBLIC_IP=${PUBLIC_IP}"
+docker compose --env-file .env.gcp.local -f docker-compose.yml -f docker-compose.gcp.yml --profile gcp up -d --build
+
+echo "Simple FE should be available at http://${PUBLIC_IP}:3003"z "$1" ]; then
   echo "Usage: $0 <PUBLIC_IP>"
   exit 1
 fi

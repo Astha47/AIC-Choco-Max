@@ -6,7 +6,5 @@ services:
       - HLS_PORT=9888
       - MQTT_HOST=${PUBLIC_IP}
       - MQTT_WS_PORT=8000
-    ports:
-      - "80:3003"
     profiles:
       - gcp
