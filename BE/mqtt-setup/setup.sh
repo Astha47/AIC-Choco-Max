@@ -7,7 +7,7 @@ set -euo pipefail
 HIVE_DOCKER_IMAGE="hivemq/hivemq4:latest"
 CONTAINER_NAME="hivemq-ce"
 MQTT_PORT=1883
-HTTP_PORT=8080
+HTTP_PORT=18080
 
 # Colors
 GREEN='\033[0;32m'
@@ -47,7 +47,7 @@ HiveMQ includes a web-based management interface unlike Mosquitto.
 
 Features:
     • MQTT Broker on port $MQTT_PORT
-    • Web Management Interface on port $HTTP_PORT
+        • Web Management Interface on port $HTTP_PORT
     • Enterprise-grade features ready for production scaling
     • High performance and scalability
 EOF

@@ -5,7 +5,7 @@ Docker Compose port mappings (from docker-compose.yml):
 
 - service: hivemq (container: yolo-hivemq)
   host:container -> 1883:1883  (MQTT)
-  host:container -> 8080:8080  (Management Console)
+  host:container -> 18080:8080  (Management Console)
   host:container -> 8000:8000  (WebSocket)
 
 - service: rtsp-server (container: yolo-rtsp-server)
@@ -36,7 +36,7 @@ Current host listening ports (selected relevant lines from `ss -ltnp` / `ss -lun
 Conflict analysis (matches between compose host ports and host listeners):
 
 - 3307 (compose -> mysql) : NOT in use on host (host has 3306 and 33060). No direct conflict.
-- 1883, 8080, 8000 (hivemq) : NOT currently listening on host. No conflict detected.
+- 1883, 18080, 8000 (hivemq) : NOT currently listening on host. No conflict detected.
 - 8554, 1935, 9888 (rtsp-server) : NOT currently listening on host. No conflict detected.
 - 3000 (sfu-mediasoup) : NOT currently listening on host. No conflict detected.
 - 10000-10100/udp (sfu-mediasoup) : No UDP listeners present in that range on host. No conflict detected.

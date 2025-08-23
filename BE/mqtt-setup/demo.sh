@@ -133,7 +133,7 @@ fi
 
 echo ""
 
-# Show HiveMQ system info
+echo "• Access HiveMQ web interface at http://localhost:18080"
 print_step "HiveMQ system information:"
 sys_topics=("\$SYS/broker/version" "\$SYS/broker/uptime" "\$SYS/broker/clients/connected")
 
@@ -150,5 +150,5 @@ echo ""
 echo "Next steps:"
 echo "• Connect your applications to localhost:$MQTT_PORT"
 echo "• Use topics like 'sensors/temperature', 'devices/status', etc."
-echo "• Access HiveMQ web interface at http://localhost:8080"
+echo "• Access HiveMQ web interface at http://localhost:18080"
 echo "• Run './test.sh' for comprehensive testing"

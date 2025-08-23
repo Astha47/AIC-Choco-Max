@@ -218,7 +218,7 @@ Network Configuration:
 - SFU Service: http://localhost:3000
 - MQTT Broker: mqtt://localhost:1883, ws://localhost:8000
     - MySQL Database: localhost:3307
-- Frontend: http://localhost:8080
+    - Frontend: http://localhost:18080
 
 Internal Communication:
 - Services use container names (hivemq, mysql, rtsp-server, etc.)
@@ -286,7 +286,7 @@ Quick Start:
 
 Service URLs:
 - 📊 SFU Service: http://localhost:3000
-- 📡 MQTT Console: http://localhost:8080
+- 📡 MQTT Console: http://localhost:18080
 - 🗄️  MySQL: localhost:3307
 - 📹 RTSP: rtsp://localhost:8554/cam[1-3]
 

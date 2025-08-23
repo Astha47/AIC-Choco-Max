@@ -6,7 +6,7 @@ set -euo pipefail
 
 MQTT_HOST="${MQTT_HOST:-localhost}"
 MQTT_PORT="${MQTT_PORT:-1883}"
-HTTP_PORT="${HTTP_PORT:-8080}"
+HTTP_PORT="${HTTP_PORT:-18080}"
 CONTAINER_NAME="hivemq-ce"
 
 # Colors
@@ -117,7 +117,7 @@ test_http_interface() {
             else
                 print_warning "HTTP port open but interface not responding"
             fi
-        else
+                print_info "• Web interface: http://$MQTT_HOST:18080"
             print_info "Install curl for HTTP response testing"
         fi
         return 0
@@ -254,7 +254,7 @@ while [[ $# -gt 0 ]]; do
             echo "OPTIONS:"
             echo "  --host HOST       MQTT broker host (default: localhost)"
             echo "  --mqtt-port PORT  MQTT port (default: 1883)"
-            echo "  --http-port PORT  HTTP port (default: 8080)"
+            echo "  --http-port PORT  HTTP port (default: 18080)"
             echo "  -h, --help        Show this help"
             exit 0
             ;;
