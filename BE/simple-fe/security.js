@@ -26,7 +26,8 @@ async function connectWebRTC() {
     infoP.textContent = 'Establishing WebRTC connection to SFU...';
     
     // Connect to SFU signaling server
-    socket = new WebSocket('ws://localhost:3000');
+    const SFU_WS_URL = (window.__APP_CONFIG__ && window.__APP_CONFIG__.SFU_WS_URL) || 'ws://localhost:3000';
+    socket = new WebSocket(SFU_WS_URL);
     
     socket.onopen = () => {
       log('✅ Connected to SFU signaling server');
@@ -133,7 +134,7 @@ connectBtn.addEventListener('click', connectWebRTC);
 disconnectBtn.addEventListener('click', disconnectWebRTC);
 
 // MQTT for security alerts
-const mqttUrl = 'ws://localhost:8000/mqtt';
+const mqttUrl = (window.__APP_CONFIG__ && window.__APP_CONFIG__.MQTT_WS_URL) || 'ws://localhost:8000/mqtt';
 log(`Connecting to security alert system: ${mqttUrl}`);
 
 const client = mqtt.connect(mqttUrl);

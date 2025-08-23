@@ -155,6 +155,8 @@ services:
       - HLS_PORT=${HLS_PORT:-9888}
       - MQTT_HOST=${MQTT_HOST:-localhost}
       - MQTT_WS_PORT=${MQTT_WS_PORT:-8000}
+      - SFU_HOST=${SFU_HOST:-localhost}
+      - SFU_PORT=${SFU_PORT:-3000}
     ports:
       - "${FE_PORT:-3003}:3003"
     networks:

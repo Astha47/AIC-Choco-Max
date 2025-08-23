@@ -33,8 +33,8 @@ for(const c of cams){
   log(`Setting up WebRTC for ${c} - SFU connection needed`);
 }
 
-// MQTT over WebSocket connection to HiveMQ (ws://localhost:8000)
-const mqttUrl = 'ws://localhost:8000/mqtt'; // HiveMQ WebSocket endpoint mapping
+// MQTT over WebSocket connection to HiveMQ
+const mqttUrl = (window.__APP_CONFIG__ && window.__APP_CONFIG__.MQTT_WS_URL) || 'ws://localhost:8000/mqtt'; // HiveMQ WebSocket endpoint mapping
 log(`Connecting to MQTT ${mqttUrl}`);
 const client = mqtt.connect(mqttUrl);
 client.on('connect', () => {
