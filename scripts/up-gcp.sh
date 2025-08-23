@@ -42,20 +42,20 @@ set +a
 
 echo "Starting in GCP mode with PUBLIC_IP=${PUBLIC_IP}"
 
-# Build the GPU-enabled image for inference (uses Dockerfile.cuda)
-print_status "Building GPU-enabled inference image..."
+# Setup native GPU inference (uses host GPU directly without Docker CUDA image)
+print_status "Setting up native GPU inference service..."
 (
   cd BE/inference-yolo
-  ./run.sh --gpu-build
+  ./run-native-gpu.sh --setup
 )
 
 # Bring up the rest of the stack but do not start the compose-managed yolo-inference service
 # (we'll run it separately so we can pass --gpus). Compose accepts --scale to set replicas to 0.
 docker compose --env-file .env.gcp.local -f docker-compose.yml -f docker-compose.gcp.yml --profile gcp up --build --scale yolo-inference=0 -d
 
-# Start the GPU-enabled inference container separately (detached)
-print_status "Starting GPU-enabled inference container..."
-(cd BE/inference-yolo && ./run.sh --gpu -d)
+# Start the native GPU inference service separately (detached)
+print_status "Starting native GPU inference service..."
+(cd BE/inference-yolo && ./run-native-gpu.sh -d)
 
 echo "Simple FE should be available at http://${PUBLIC_IP}:3003"
 
