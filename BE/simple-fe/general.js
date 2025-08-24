@@ -3,6 +3,8 @@ const LOG = document.getElementById('log');
 const video = document.getElementById('cam01_video');
 const status = document.getElementById('cam01_status');
 
+IP_CONFIG = "34.67.36.52"
+
 function log(msg) {
   const t = new Date().toISOString();
   LOG.innerText = `[${t}] ${msg}\n` + LOG.innerText;
@@ -12,7 +14,7 @@ function log(msg) {
 console.log('Config loaded:', window.__APP_CONFIG__);
 
 // Setup HLS for processed camera stream
-const HLS_BASE = (window.__APP_CONFIG__ && window.__APP_CONFIG__.HLS_URL) || 'http://localhost:9888';
+const HLS_BASE = "http://" + IP_CONFIG + ":9888";
 const hlsUrl = `${HLS_BASE}/cam01_proc/index.m3u8`;
 console.log('Using HLS URL:', hlsUrl);
 
@@ -58,7 +60,7 @@ if (Hls.isSupported()) {
 }
 
 // MQTT connection for real-time alerts
-const MQTT_WS = (window.__APP_CONFIG__ && window.__APP_CONFIG__.MQTT_WS_URL) || 'ws://localhost:8000/mqtt';
+const MQTT_WS = "ws://"+ IP_CONFIG + ":8000/mqtt";
 console.log('Using MQTT URL:', MQTT_WS);
 log(`Connecting to MQTT: ${MQTT_WS}`);
 
