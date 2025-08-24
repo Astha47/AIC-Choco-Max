@@ -43,3 +43,5 @@ node_modules/
 
 # Ignore HiveMQ runtime data directory (Docker volume mount)
 BE/mqtt-setup/hivemq-data/
+
+fe/node_modules/
