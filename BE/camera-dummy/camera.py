@@ -46,16 +46,54 @@ class RTSPCameraDummy:
             # RTSP URL untuk kamera ini (use consistent /camXX path)
             rtsp_url = f"rtsp://{self.rtsp_host}:{self.rtsp_port}/cam{int(self.camera_id):02d}"
             
+            # Pilih encoder sesuai environment
+            encoder = 'libx264'  # Default CPU
+            preset = 'ultrafast'
+            tune = 'zerolatency'
+            # Deteksi NVIDIA GPU
+            try:
+                gpu_info = subprocess.run(['nvidia-smi'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                if gpu_info.returncode == 0:
+                    encoder = 'h264_nvenc'
+                    preset = 'llhp'
+                    tune = None
+            except Exception:
+                pass
+            # Deteksi Intel QuickSync/VAAPI
+            if encoder == 'libx264':
+                try:
+                    vaapi_info = subprocess.run(['vainfo'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    if vaapi_info.returncode == 0:
+                        encoder = 'h264_vaapi'
+                        preset = None
+                        tune = None
+                except Exception:
+                    pass
             # Command FFmpeg untuk streaming RTSP
             cmd = [
                 'ffmpeg',
                 '-re',  # Read input at native frame rate
                 '-stream_loop', '-1',  # Loop infinitely
                 '-i', self.video_path,  # Input video file
-                '-c:v', 'libx264',  # Video codec
-                '-preset', 'ultrafast',  # Encoding preset
-                '-tune', 'zerolatency',  # Low latency tuning
+                '-c:v', encoder,
             ]
+            if preset:
+                cmd += ['-preset', preset]
+            if tune:
+                cmd += ['-tune', tune]
+            # VAAPI membutuhkan opsi tambahan
+            if encoder == 'h264_vaapi':
+                cmd = [
+                    'ffmpeg',
+                    '-re',
+                    '-stream_loop', '-1',
+                    '-hwaccel', 'vaapi',
+                    '-hwaccel_device', '/dev/dri/renderD128',
+                    '-i', self.video_path,
+                    '-vf', 'format=nv12,hwupload',
+                    '-c:v', 'h264_vaapi',
+                ]
+            # ...existing code...
 
             # If a max_fps limit is provided, request ffmpeg to output at that rate
             if self.max_fps is not None:
