@@ -4,13 +4,17 @@ ENV PIP_NO_CACHE_DIR=1 PYTHONUNBUFFERED=1
 
 # Install runtime deps (FFmpeg + minimal libs for OpenCV)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-       ffmpeg \
-       libgl1 \
-       libglib2.0-0 \
-       libsm6 \
-       libxrender1 \
-    && rm -rf /var/lib/apt/lists/*
+     && apt-get install -y --no-install-recommends \
+         ffmpeg \
+         vainfo \
+         libva2 \
+         libva-drm2 \
+         libva-x112 \
+         libgl1 \
+         libglib2.0-0 \
+         libsm6 \
+         libxrender1 \
+     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

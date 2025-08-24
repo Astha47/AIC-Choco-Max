@@ -21,6 +21,10 @@ RUN apt-get update && apt-get install -y \
     gstreamer1.0-tools \
     libgstreamer-plugins-base1.0-dev \
     ffmpeg \
+    vainfo \
+    libva2 \
+    libva-drm2 \
+    libva-x11-2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
