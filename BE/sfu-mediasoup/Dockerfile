@@ -18,6 +18,22 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*
+    ffmpeg \
+    vainfo \
+    libva2 \
+    libva-drm2 \
+    libva-x11-2 \
+    python3 \
+    python3-pip \
+    make \
+    g++ \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    libudev-dev \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
