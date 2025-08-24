@@ -9,6 +9,11 @@ const infoP = document.getElementById('cam01_info');
 let peerConnection = null;
 let socket = null;
 
+// Resolve SFU / MQTT endpoints from runtime config if available, else fallback to hardcoded IP
+const APP_CFG = (typeof window !== 'undefined' && window.__APP_CONFIG__) ? window.__APP_CONFIG__ : {};
+const SFU_WS = APP_CFG.SFU_WS_URL || 'ws://34.67.36.52:3000';
+const MQTT_WS = APP_CFG.MQTT_WS_URL || 'ws://34.67.36.52:8000/mqtt';
+
 function log(msg) {
   const t = new Date().toISOString();
   LOG.innerText = `[${t}] ${msg}\n` + LOG.innerText;
@@ -25,9 +30,8 @@ async function connectWebRTC() {
     updateStatus('connecting', 'Connecting...');
     infoP.textContent = 'Establishing WebRTC connection to SFU...';
     
-    // Connect to SFU signaling server
-    const SFU_WS_URL = "ws://"+ IP_CONFIG +":3000";
-    socket = new WebSocket(SFU_WS_URL);
+  // Connect to SFU signaling server
+  socket = new WebSocket(SFU_WS);
     
     socket.onopen = () => {
       log('✅ Connected to SFU signaling server');
@@ -133,8 +137,8 @@ function disconnectWebRTC() {
 connectBtn.addEventListener('click', connectWebRTC);
 disconnectBtn.addEventListener('click', disconnectWebRTC);
 
-// MQTT for security alerts
-const mqttUrl = "ws://"+ IP_CONFIG +":8000/mqtt";
+// MQTT for security alerts (use resolved MQTT_WS)
+const mqttUrl = MQTT_WS;
 log(`Connecting to security alert system: ${mqttUrl}`);
 
 const client = mqtt.connect(mqttUrl);
