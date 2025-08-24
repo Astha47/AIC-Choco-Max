@@ -1,5 +1,6 @@
 // Security Dashboard - WebRTC + MQTT
 const LOG = document.getElementById('log');
+const WEBRTC_LOGGER = document.getElementById('webrtc_logger');
 const video = document.getElementById('cam01_video');
 const connectBtn = document.getElementById('connect_btn');
 const disconnectBtn = document.getElementById('disconnect_btn');
@@ -23,11 +24,16 @@ function pretty(obj) {
   try { return JSON.stringify(obj); } catch (e) { return String(obj); }
 }
 
-function log(msg) {
+function log(msg, opts = {}) {
   const t = new Date().toISOString();
-  LOG.innerText = `[${t}] ${msg}\n` + LOG.innerText;
+  const line = `[${t}] ${msg}\n`;
+  LOG.innerText = line + LOG.innerText;
   // Mirror to browser console for easier devtools inspection
   try { console.debug('[security-log]', msg); } catch (e) {}
+  // Jika log terkait WebRTC, tampilkan juga di logger khusus
+  if (opts.webrtc || msg.match(/webrtc|RTC|peer|ice|signaling|offer|answer|candidate|sfu|socket|connect/i)) {
+    WEBRTC_LOGGER.innerText = line + WEBRTC_LOGGER.innerText;
+  }
 }
 
 function updateStatus(status, text) {
@@ -50,31 +56,31 @@ async function connectWebRTC() {
         const payload = JSON.stringify(msg);
         if (socket && socket.readyState === WebSocket.OPEN) {
           socket.send(payload);
-          log(`📤 Signaling send: ${payload}`);
+          log(`📤 Signaling send: ${payload}`, { webrtc: true });
         } else {
-          log(`⚠️ Signaling not open, cannot send: ${payload}`);
+          log(`⚠️ Signaling not open, cannot send: ${payload}`, { webrtc: true });
         }
       } catch (e) {
-        log('❌ Signaling send error: ' + e);
+  log('❌ Signaling send error: ' + e, { webrtc: true });
       }
     }
 
     socket.onopen = () => {
-      log(`✅ Connected to SFU signaling server ${SFU_WS}`);
+  log(`✅ Connected to SFU signaling server ${SFU_WS}`, { webrtc: true });
       sendSignal({ type: 'join', roomId: 'security', mediaType: 'recv-only' });
     };
 
     socket.onmessage = async (event) => {
-      log('📥 Signaling message raw: ' + event.data);
+  log('📥 Signaling message raw: ' + event.data, { webrtc: true });
       let message = null;
       try {
         message = JSON.parse(event.data);
       } catch (e) {
-        log('❌ Failed to parse signaling message: ' + e);
+  log('❌ Failed to parse signaling message: ' + e, { webrtc: true });
         return;
       }
 
-      log('📩 Signaling parsed: ' + pretty(message));
+  log('📩 Signaling parsed: ' + pretty(message), { webrtc: true });
 
       if (message.type === 'offer') {
         await handleOffer(message.offer);
@@ -82,31 +88,31 @@ async function connectWebRTC() {
         if (peerConnection) {
           try {
             await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
-            log('✅ Added remote ICE candidate');
+            log('✅ Added remote ICE candidate', { webrtc: true });
           } catch (e) {
-            log('❌ Failed to add remote ICE candidate: ' + e);
+            log('❌ Failed to add remote ICE candidate: ' + e, { webrtc: true });
           }
         } else {
-          log('⚠️ Received ICE candidate but peerConnection not initialized yet');
+          log('⚠️ Received ICE candidate but peerConnection not initialized yet', { webrtc: true });
         }
       } else {
-        log('ℹ️ Signaling message type unhandled: ' + message.type);
+  log('ℹ️ Signaling message type unhandled: ' + message.type, { webrtc: true });
       }
     };
 
     socket.onerror = (error) => {
-      log('❌ SFU connection error: ' + pretty(error));
+  log('❌ SFU connection error: ' + pretty(error), { webrtc: true });
       updateStatus('error', 'Connection failed');
       infoP.textContent = 'Failed to connect to SFU server';
     };
 
     socket.onclose = (ev) => {
-      log(`🔌 SFU connection closed (code=${ev.code} reason=${ev.reason || ''})`);
+  log(`🔌 SFU connection closed (code=${ev.code} reason=${ev.reason || ''})`, { webrtc: true });
       updateStatus('error', 'Disconnected');
     };
     
   } catch (error) {
-    log('❌ WebRTC setup error: ' + error);
+  log('❌ WebRTC setup error: ' + error, { webrtc: true });
     updateStatus('error', 'Setup failed');
     infoP.textContent = 'WebRTC setup failed: ' + error.message;
   }
@@ -115,7 +121,7 @@ async function connectWebRTC() {
 async function handleOffer(offer) {
   try {
     // Create peer connection with configurable ICE servers (STUN/TURN)
-    log('🔧 Creating RTCPeerConnection with ICE servers: ' + pretty(ICE_SERVERS));
+  log('🔧 Creating RTCPeerConnection with ICE servers: ' + pretty(ICE_SERVERS), { webrtc: true });
     peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     // Start periodic stats monitor
     startStatsMonitor();
