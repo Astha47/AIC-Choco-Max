@@ -11,7 +11,7 @@ let socket = null;
 
 // Resolve SFU / MQTT endpoints from runtime config if available, else fallback to hardcoded IP
 const APP_CFG = (typeof window !== 'undefined' && window.__APP_CONFIG__) ? window.__APP_CONFIG__ : {};
-const SFU_WS = APP_CFG.SFU_WS_URL || 'ws://34.67.36.52:3000';
+const SFU_WS = APP_CFG.SFU_WS_URL || 'ws://34.67.36.52:3004';
 const MQTT_WS = APP_CFG.MQTT_WS_URL || 'ws://34.67.36.52:8000/mqtt';
 
 function log(msg) {

@@ -104,7 +104,7 @@ elif [ "$DETACHED" = true ]; then
     
     print_status "Service started in detached mode"
     print_status "Check logs with: docker logs -f sfu-mediasoup-service"
-    print_status "Service available at: http://localhost:3000"
+    print_status "Service available at: http://localhost:3004"
 else
     # Interactive mode
     docker run -it --rm \

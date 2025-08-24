@@ -4,7 +4,6 @@ const VIDEOS = document.getElementById('videos');
 
 // Read runtime config injected by server (config.js) or fallback to hardcoded IP
 const APP_CFG = (typeof window !== 'undefined' && window.__APP_CONFIG__) ? window.__APP_CONFIG__ : {};
-const IP_CONFIG = APP_CFG.HOST_IP || '34.67.36.52';
 
 function log(msg){
   const t = new Date().toISOString();
@@ -38,7 +37,7 @@ for(const c of cams){
 }
 
 // MQTT over WebSocket connection to HiveMQ (use runtime config if available)
-const mqttUrl = APP_CFG.MQTT_WS_URL || ("ws://"+ IP_CONFIG+ ":8000/mqtt"); // HiveMQ WebSocket endpoint mapping
+const mqttUrl = APP_CFG.MQTT_WS_URL || 'ws://34.67.36.52:8000/mqtt'; // HiveMQ WebSocket endpoint mapping
 console.log('App.js using MQTT URL:', mqttUrl);
 log(`Connecting to MQTT ${mqttUrl}`);
 const client = mqtt.connect(mqttUrl);

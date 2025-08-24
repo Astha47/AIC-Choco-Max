@@ -75,7 +75,7 @@ class Config:
     # SFU Configuration
     SFU_ENABLED = os.getenv('SFU_ENABLED', 'true').lower() == 'true'
     SFU_HOST = os.getenv('SFU_HOST', 'localhost')
-    SFU_PORT = int(os.getenv('SFU_PORT', '3000'))
+    SFU_PORT = int(os.getenv('SFU_PORT', '3004'))
     SFU_SSL = os.getenv('SFU_SSL', 'false').lower() == 'true'
     
     # Logging

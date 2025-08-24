@@ -373,7 +373,7 @@ class SFUServer {
             }
             
             // Start server
-            const port = process.env.PORT || 3000;
+            const port = process.env.PORT || 3004;
             const host = process.env.HOST || '0.0.0.0';
             
             this.server.listen(port, host, () => {

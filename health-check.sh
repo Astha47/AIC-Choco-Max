@@ -58,10 +58,10 @@ check_service_endpoints() {
     print_header "Service Endpoint Health Checks"
     
     # SFU Service
-    if curl -s -f http://localhost:3000/health > /dev/null 2>&1; then
-        print_status "✓ SFU Service (http://localhost:3000)"
+    if curl -s -f http://localhost:3004/health > /dev/null 2>&1; then
+        print_status "✓ SFU Service (http://localhost:3004)"
     else
-        print_warning "✗ SFU Service (http://localhost:3000) - not responding"
+        print_warning "✗ SFU Service (http://localhost:3004) - not responding"
     fi
     
     # MQTT Web Console
