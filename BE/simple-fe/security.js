@@ -70,54 +70,55 @@ async function connectWebRTC() {
       }
     }
 
-    socket.onopen = () => {
-      log(`✅ Connected to SFU signaling server ${SFU_WS}`, { webrtc: true });
-      log(`📤 Sending join request: roomId=security, mediaType=recv-only`, { webrtc: true });
-      sendSignal({ type: 'join', roomId: 'security', mediaType: 'recv-only' });
-      updateStatus('connecting', 'Signaling connected, waiting for offer...');
-    };    socket.onmessage = async (event) => {
-  log('📥 Signaling message raw: ' + event.data, { webrtc: true });
-      let message = null;
-      try {
-        message = JSON.parse(event.data);
-      } catch (e) {
-  log('❌ Failed to parse signaling message: ' + e, { webrtc: true });
-        return;
-      }
+    socket.on('connect', () => {
+      updateStatus('connected', 'Connected');
+      log(`✅ Connected to SFU server via Socket.IO (ID: ${socket.id})`, { webrtc: true });
+      
+      // Generate unique peer ID
+      const peerId = `peer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      log(`📤 Sending join-room request: roomId=security, peerId=${peerId}`, { webrtc: true });
+      socket.emit('join-room', { roomId: 'security', peerId: peerId });
+    });
 
-  log('📩 Signaling parsed: ' + pretty(message), { webrtc: true });
+    // Handle SFU responses
+    socket.on('router-rtp-capabilities', (data) => {
+      log(`📥 Received router RTP capabilities from SFU`, { webrtc: true });
+      log(`🔧 RTP Capabilities received, codecs count: ${data.rtpCapabilities?.codecs?.length || 0}`, { webrtc: true });
+      // Store capabilities for creating device
+      window.rtpCapabilities = data.rtpCapabilities;
+      
+      // Request WebRTC transport for receiving
+      log(`📤 Requesting WebRTC transport for receiving`, { webrtc: true });
+      socket.emit('create-webrtc-transport', { direction: 'recv' });
+    });
 
-      if (message.type === 'offer') {
-        await handleOffer(message.offer);
-      } else if (message.type === 'ice-candidate') {
-        if (peerConnection) {
-          try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
-            log('✅ Added remote ICE candidate', { webrtc: true });
-          } catch (e) {
-            log('❌ Failed to add remote ICE candidate: ' + e, { webrtc: true });
-          }
-        } else {
-          log('⚠️ Received ICE candidate but peerConnection not initialized yet', { webrtc: true });
-        }
-      } else {
-  log('ℹ️ Signaling message type unhandled: ' + message.type, { webrtc: true });
-      }
-    };
+    socket.on('existing-producers', (data) => {
+      log(`� Existing producers available: ${JSON.stringify(data.producerIds)}`, { webrtc: true });
+      // Start consuming from existing producers
+      data.producerIds.forEach(producerId => {
+        log(`🔄 Requesting to consume producer: ${producerId}`, { webrtc: true });
+        // TODO: Implement consumer creation
+      });
+    });
 
-    socket.onerror = (error) => {
-      log('❌ SFU connection error: ' + pretty(error), { webrtc: true });
-      log(`❌ WebSocket error details: readyState=${socket?.readyState}, url=${socket?.url}`, { webrtc: true });
-      updateStatus('error', 'Connection failed');
-      infoP.textContent = 'Failed to connect to SFU server. Check if SFU is running on port 3004.';
-    };
+    socket.on('webrtc-transport-created', (data) => {
+      log(`📥 WebRTC transport created: ${data.transportId}`, { webrtc: true });
+      log(`🧊 ICE Parameters: ${JSON.stringify(data.iceParameters)}`, { webrtc: true });
+      log(`🧊 ICE Candidates: ${JSON.stringify(data.iceCandidates)}`, { webrtc: true });
+      log(`🔧 DTLS Parameters: ${JSON.stringify(data.dtlsParameters)}`, { webrtc: true });
+    });
 
-    socket.onclose = (ev) => {
-      log(`🔌 SFU connection closed (code=${ev.code} reason=${ev.reason || ''})`, { webrtc: true });
-      log(`🔌 Close event details: wasClean=${ev.wasClean}, type=${ev.type}`, { webrtc: true });
+    socket.on('error', (data) => {
+      log(`❌ SFU Error: ${data.message}`, { webrtc: true });
+      updateStatus('error', 'SFU Error');
+      infoP.textContent = `SFU Error: ${data.message}`;
+    });
+
+    socket.on('disconnect', () => {
+      log(`🔌 Disconnected from SFU server`, { webrtc: true });
       updateStatus('error', 'Disconnected');
-      infoP.textContent = `Connection closed. Code: ${ev.code}. Check if SFU server is running.`;
-    };  } catch (error) {
+      infoP.textContent = 'Disconnected from SFU server';
+    });  } catch (error) {
   log('❌ WebRTC setup error: ' + error, { webrtc: true });
     updateStatus('error', 'Setup failed');
     infoP.textContent = 'WebRTC setup failed: ' + error.message;
@@ -292,15 +293,26 @@ client.on('message', (topic, payload) => {
     const data = JSON.parse(payload.toString());
     const camera = topic.split('/')[1];
     
-    if (data.detections && data.detections.length > 0) {
-      const objects = data.detections.map(d => `${d.label} (${Math.round(d.confidence * 100)}%)`).join(', ');
-      log(`🚨 SECURITY ALERT [${camera}]: ${objects}`);
+    log(`📨 MQTT Raw data from ${camera}: ${JSON.stringify(data)}`);
+    
+    if (data.detections && Array.isArray(data.detections) && data.detections.length > 0) {
+      const validDetections = data.detections.filter(d => d && d.label && typeof d.confidence === 'number');
       
-      // Could add visual/audio alerts here for security personnel
-      // e.g., flash the screen, play alert sound, etc.
+      if (validDetections.length > 0) {
+        const objects = validDetections.map(d => `${d.label} (${Math.round(d.confidence * 100)}%)`).join(', ');
+        log(`🚨 SECURITY ALERT [${camera}]: ${objects}`);
+      } else {
+        log(`⚠️ MQTT message has detections but missing label/confidence fields from ${camera}`);
+        log(`🔍 Detection sample: ${JSON.stringify(data.detections[0])}`);
+      }
+    } else if (data.detections) {
+      log(`⚠️ MQTT detections field exists but is not valid array from ${camera}: ${typeof data.detections}`);
+    } else {
+      log(`📨 MQTT message from ${camera} (no detections): ${JSON.stringify(data)}`);
     }
   } catch (e) {
-    log(`📨 ${topic}: ${payload.toString()}`);
+    log(`❌ Failed to parse MQTT message from ${topic}: ${e.message}`);
+    log(`📨 Raw payload: ${payload.toString()}`);
   }
 });
 
