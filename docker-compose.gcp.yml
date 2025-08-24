@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  simple-fe:
+    environment:
+      - HLS_HOST=${PUBLIC_IP}
+      - HLS_PORT=9888
+      - MQTT_HOST=${PUBLIC_IP}
+      - MQTT_WS_PORT=8000
+      - SFU_HOST=${PUBLIC_IP}
+      - SFU_PORT=3000
+    profiles:
+      - gcp
+  
+  sfu-mediasoup:
+    environment:
+      - MEDIASOUP_ANNOUNCED_IP=${PUBLIC_IP}
+    profiles:
+      - gcp

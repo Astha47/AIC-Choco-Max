@@ -45,7 +45,7 @@ YOLOv12 real-time object detection system with WebRTC streaming, MQTT messaging,
 ```
 
 ### 3. Access Services
-- **SFU WebRTC**: http://localhost:3000
+- **SFU WebRTC**: http://localhost:3004
 - **MQTT Console**: http://localhost:18080
 - **Database**: localhost:3307
 - **RTSP Streams**: rtsp://localhost:8554/cam[1-3]
@@ -120,6 +120,7 @@ MEDIASOUP_MAX_PORT=10100
 RTSP_BRIDGE_ENABLED=true
 ```
 
+
 ## 🔧 Management Commands
 
 ### Start/Stop Services
@@ -171,7 +172,7 @@ docker exec -it yolo-mysql mysql -u root -p
 docker-compose ps
 
 # Health check endpoints
-curl http://localhost:3000/health    # SFU
+curl http://localhost:3004/health    # SFU
 curl http://localhost:18080/health    # MQTT Console
 ```
 

@@ -8,8 +8,14 @@ function log(msg) {
   LOG.innerText = `[${t}] ${msg}\n` + LOG.innerText;
 }
 
-// Setup HLS for processed camera stream
-const hlsUrl = 'http://localhost:9888/cam01_proc/index.m3u8';
+// Debug: Check if config is loaded
+console.log('Config loaded:', window.__APP_CONFIG__);
+
+// Resolve endpoints from runtime config (config.js) or fall back to hardcoded IP
+const APP_CFG = (typeof window !== 'undefined' && window.__APP_CONFIG__) ? window.__APP_CONFIG__ : {};
+const HLS_BASE = APP_CFG.HLS_URL || 'http://34.67.36.52:9888';
+const hlsUrl = `${HLS_BASE}/cam01_proc/index.m3u8`;
+console.log('Using HLS URL:', hlsUrl);
 
 if (Hls.isSupported()) {
   const hls = new Hls({
@@ -52,11 +58,12 @@ if (Hls.isSupported()) {
   status.style.color = 'red';
 }
 
-// MQTT connection for real-time alerts
-const mqttUrl = 'ws://localhost:8000/mqtt';
-log(`Connecting to MQTT: ${mqttUrl}`);
+// MQTT connection for real-time alerts (use runtime config if present)
+const MQTT_WS = APP_CFG.MQTT_WS_URL || 'ws://34.67.36.52:8000/mqtt';
+console.log('Using MQTT URL:', MQTT_WS);
+log(`Connecting to MQTT: ${MQTT_WS}`);
 
-const client = mqtt.connect(mqttUrl);
+const client = mqtt.connect(MQTT_WS);
 
 client.on('connect', () => {
   log('✅ MQTT connected - ready for detection alerts');

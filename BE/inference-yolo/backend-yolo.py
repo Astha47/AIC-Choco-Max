@@ -75,7 +75,7 @@ class Config:
     # SFU Configuration
     SFU_ENABLED = os.getenv('SFU_ENABLED', 'true').lower() == 'true'
     SFU_HOST = os.getenv('SFU_HOST', 'localhost')
-    SFU_PORT = int(os.getenv('SFU_PORT', '3000'))
+    SFU_PORT = int(os.getenv('SFU_PORT', '3004'))
     SFU_SSL = os.getenv('SFU_SSL', 'false').lower() == 'true'
     
     # Logging
@@ -232,7 +232,36 @@ class YOLOInference:
         self.logger = logging.getLogger(__name__ + '.YOLOInference')
         self.device = config.MODEL_DEVICE
         
+        # Log torch / CUDA info early to help debugging GPU availability
+        self._log_cuda_info()
+
         self._load_model()
+
+    def _log_cuda_info(self):
+        """Log detailed torch / CUDA runtime information for debugging"""
+        try:
+            self.logger.info(f"torch version: {torch.__version__}")
+            # torch.version.cuda can be None if CPU-only wheel
+            try:
+                self.logger.info(f"torch built with CUDA: {torch.version.cuda}")
+            except Exception:
+                self.logger.info("torch built with CUDA: unknown")
+
+            cuda_available = torch.cuda.is_available()
+            self.logger.info(f"torch.cuda.is_available(): {cuda_available}")
+            if cuda_available:
+                try:
+                    device_count = torch.cuda.device_count()
+                    self.logger.info(f"cuda device count: {device_count}")
+                    for i in range(device_count):
+                        name = torch.cuda.get_device_name(i)
+                        prop = torch.cuda.get_device_properties(i)
+                        self.logger.info(f"cuda device {i}: {name} - total_memory={prop.total_memory / (1024**3):.2f}GB")
+                except Exception as e:
+                    self.logger.warning(f"Failed to query CUDA devices: {e}")
+        except Exception as e:
+            # shouldn't crash the service if torch import etc. misbehaves
+            self.logger.warning(f"Unable to log CUDA info: {e}")
     
     def _load_model(self):
         """Load YOLO model with fallback handling"""
@@ -475,7 +504,7 @@ class ProcessPublisher:
             self.process = subprocess.Popen(
                 ffmpeg_cmd,
                 stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE
             )
             
@@ -520,10 +549,37 @@ class ProcessPublisher:
                     return False
 
             # Write raw BGR bytes
-            self.process.stdin.write(frame.tobytes())
+            try:
+                self.process.stdin.write(frame.tobytes())
+                # flush to ensure ffmpeg receives the input promptly and to detect broken pipes
+                try:
+                    self.process.stdin.flush()
+                except Exception:
+                    pass
+            except BrokenPipeError:
+                logging.getLogger(__name__).warning(f"Broken pipe when writing frame for {self.camera_id}_proc - restarting publisher")
+                # Attempt to restart publisher once
+                self.stop()
+                self.start(w, h)
+                if not self.process:
+                    return False
+                try:
+                    self.process.stdin.write(frame.tobytes())
+                    try:
+                        self.process.stdin.flush()
+                    except Exception:
+                        pass
+                except Exception as e:
+                    logging.getLogger(__name__).error(f"Retry write failed for {self.camera_id}_proc: {e}")
+                    return False
             return True
         except Exception as e:
             logging.getLogger(__name__).error(f"Failed to write frame for {self.camera_id}: {e}")
+            # If any write error happens, ensure the process is stopped so future writes will recreate it
+            try:
+                self.stop()
+            except Exception:
+                pass
             return False
 
     def stop(self):

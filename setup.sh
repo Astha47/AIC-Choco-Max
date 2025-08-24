@@ -215,7 +215,7 @@ setup_network() {
 
 Network Configuration:
 - RTSP Server: rtsp://localhost:8554/cam[1-3]
-- SFU Service: http://localhost:3000
+    - SFU Service: http://localhost:3004
 - MQTT Broker: mqtt://localhost:1883, ws://localhost:8000
     - MySQL Database: localhost:3307
     - Frontend: http://localhost:18080
@@ -285,7 +285,7 @@ Quick Start:
    ${GREEN}docker-compose down${NC}
 
 Service URLs:
-- 📊 SFU Service: http://localhost:3000
+- 📊 SFU Service: http://localhost:3004
 - 📡 MQTT Console: http://localhost:18080
 - 🗄️  MySQL: localhost:3307
 - 📹 RTSP: rtsp://localhost:8554/cam[1-3]

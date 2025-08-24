@@ -22,6 +22,8 @@ print_error() {
 # Parse command line arguments
 DETACHED=false
 BUILD=false
+GPU=false
+GPU_BUILD=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -33,11 +35,21 @@ while [[ $# -gt 0 ]]; do
             BUILD=true
             shift
             ;;
+        --gpu)
+            GPU=true
+            shift
+            ;;
+        --gpu-build)
+            GPU_BUILD=true
+            shift
+            ;;
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
-            echo "Options:"
+            echo "Options:" 
             echo "  -d, --detached    Run in detached mode"
-            echo "  -b, --build       Force rebuild Docker image"
+            echo "  -b, --build       Force rebuild Docker image (CPU image)"
+            echo "  --gpu             Run using CUDA-enabled image and pass GPU to container"
+            echo "  --gpu-build       Force rebuild CUDA-enabled image (uses Dockerfile.cuda)"
             echo "  -h, --help        Show this help message"
             exit 0
             ;;
@@ -55,15 +67,27 @@ if [ ! -f ".env" ]; then
 fi
 
 # Build image if requested
+if [ "$GPU_BUILD" = true ]; then
+    print_status "Rebuilding CUDA-enabled Docker image (yolo-inference-service:gpu)..."
+    docker build -t yolo-inference-service:gpu -f Dockerfile.cuda .
+fi
+
 if [ "$BUILD" = true ]; then
-    print_status "Rebuilding Docker image..."
+    print_status "Rebuilding Docker image (CPU image)..."
     docker build -t yolo-inference-service .
 fi
 
-# Check if image exists
-if ! docker image inspect yolo-inference-service >/dev/null 2>&1; then
-    print_status "Docker image not found. Building..."
-    docker build -t yolo-inference-service .
+# Check if image exists; prefer GPU image if --gpu requested
+if [ "$GPU" = true ]; then
+    if ! docker image inspect yolo-inference-service:gpu >/dev/null 2>&1; then
+        print_status "CUDA image not found. Building..."
+        docker build -t yolo-inference-service:gpu -f Dockerfile.cuda .
+    fi
+else
+    if ! docker image inspect yolo-inference-service >/dev/null 2>&1; then
+        print_status "Docker image not found. Building..."
+        docker build -t yolo-inference-service .
+    fi
 fi
 
 # Stop existing container if running
@@ -74,28 +98,23 @@ docker rm yolo-inference-service 2>/dev/null || true
 # Run container
 print_status "Starting YOLOv12 Inference Service..."
 
+IMAGE_NAME=yolo-inference-service
+DOCKER_RUN_OPTS=(--name yolo-inference-service --env-file .env -v $(pwd)/models:/app/models -v $(pwd)/logs:/app/logs -v $(pwd)/data:/app/data --network host)
+
+if [ "$GPU" = true ]; then
+    IMAGE_NAME=yolo-inference-service:gpu
+    # Use Docker's --gpus if supported; fallback to --runtime=nvidia for older setups
+    GPU_OPTS=(--gpus all)
+else
+    GPU_OPTS=()
+fi
+
 if [ "$DETACHED" = true ]; then
-    docker run -d \
-        --name yolo-inference-service \
-        --env-file .env \
-        -v $(pwd)/models:/app/models \
-        -v $(pwd)/logs:/app/logs \
-        -v $(pwd)/data:/app/data \
-        --network host \
-        --restart unless-stopped \
-        yolo-inference-service
-    
+    docker run -d "${DOCKER_RUN_OPTS[@]}" "${GPU_OPTS[@]}" --restart unless-stopped $IMAGE_NAME
     print_status "Service started in detached mode"
     print_status "Check logs with: docker logs -f yolo-inference-service"
 else
-    docker run -it --rm \
-        --name yolo-inference-service \
-        --env-file .env \
-        -v $(pwd)/models:/app/models \
-        -v $(pwd)/logs:/app/logs \
-        -v $(pwd)/data:/app/data \
-        --network host \
-        yolo-inference-service
+    docker run -it --rm "${DOCKER_RUN_OPTS[@]}" "${GPU_OPTS[@]}" $IMAGE_NAME
 fi
 
 print_status "YOLOv12 Inference Service stopped"

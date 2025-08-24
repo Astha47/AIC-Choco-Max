@@ -145,7 +145,7 @@ if [ "$DETACHED" = true ]; then
                 # Show service URLs
                 print_header "Service URLs"
                 cat << EOF
-SFU Service:          http://localhost:3000
+SFU Service:          http://localhost:3004
 MQTT Console:         http://localhost:18080
 Database (MySQL):     localhost:3307
 RTSP Streams:         rtsp://localhost:8554/cam[1-3]

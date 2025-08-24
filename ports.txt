@@ -14,7 +14,7 @@ Docker Compose port mappings (from docker-compose.yml):
   host:container -> 9888:8888  (HLS; host 9888 -> container 8888)
 
 - service: sfu-mediasoup (container: yolo-sfu)
-  host:container -> 3000:3000  (SFU HTTP/WebSocket)
+  host:container -> 3004:3004  (SFU HTTP/WebSocket)
   host:container -> 10000-10100:10000-10100/udp  (Media RTP range)
 
 Other services in compose do not publish host ports (camera-dummy, yolo-inference rely on internal network links).
@@ -38,7 +38,7 @@ Conflict analysis (matches between compose host ports and host listeners):
 - 3307 (compose -> mysql) : NOT in use on host (host has 3306 and 33060). No direct conflict.
 - 1883, 18080, 8000 (hivemq) : NOT currently listening on host. No conflict detected.
 - 8554, 1935, 9888 (rtsp-server) : NOT currently listening on host. No conflict detected.
-- 3000 (sfu-mediasoup) : NOT currently listening on host. No conflict detected.
+- 3004 (sfu-mediasoup) : NOT currently listening on host. No conflict detected.
 - 10000-10100/udp (sfu-mediasoup) : No UDP listeners present in that range on host. No conflict detected.
 
 Summary conclusion:
