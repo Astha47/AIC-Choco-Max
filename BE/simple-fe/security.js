@@ -12,7 +12,7 @@ let socket = null;
 
 // Resolve SFU / MQTT endpoints from runtime config if available, else fallback to hardcoded IP
 const APP_CFG = (typeof window !== 'undefined' && window.__APP_CONFIG__) ? window.__APP_CONFIG__ : {};
-const SFU_WS = APP_CFG.SFU_WS_URL || 'ws://34.67.36.52:3004';
+const SFU_URL = APP_CFG.SFU_URL || 'http://34.67.36.52:3004'; // Socket.IO endpoint
 const MQTT_WS = APP_CFG.MQTT_WS_URL || 'ws://34.67.36.52:8000/mqtt';
 // Allow optional ICE/TURN servers from runtime config. Example APP_CFG.ICE_SERVERS = [{urls:'stun:..'}, {urls:'turn:..', username:'', credential:''}]
 const ICE_SERVERS = APP_CFG.ICE_SERVERS || [{ urls: 'stun:stun.l.google.com:19302' }];
@@ -44,10 +44,15 @@ function updateStatus(status, text) {
 // WebRTC connection to SFU
 async function connectWebRTC() {
   try {
+    log(`🚀 Initiating WebRTC connection to SFU`, { webrtc: true });
+    log(`📍 SFU WebSocket URL: ${SFU_WS}`, { webrtc: true });
+    log(`🔧 ICE Servers configured: ${pretty(ICE_SERVERS)}`, { webrtc: true });
+    
     updateStatus('connecting', 'Connecting...');
     infoP.textContent = 'Establishing WebRTC connection to SFU...';
     
     // Connect to SFU signaling server
+    log(`🔌 Creating WebSocket connection to ${SFU_WS}`, { webrtc: true });
     socket = new WebSocket(SFU_WS);
 
     // helper to send signaling messages and log them
@@ -66,11 +71,11 @@ async function connectWebRTC() {
     }
 
     socket.onopen = () => {
-  log(`✅ Connected to SFU signaling server ${SFU_WS}`, { webrtc: true });
+      log(`✅ Connected to SFU signaling server ${SFU_WS}`, { webrtc: true });
+      log(`📤 Sending join request: roomId=security, mediaType=recv-only`, { webrtc: true });
       sendSignal({ type: 'join', roomId: 'security', mediaType: 'recv-only' });
-    };
-
-    socket.onmessage = async (event) => {
+      updateStatus('connecting', 'Signaling connected, waiting for offer...');
+    };    socket.onmessage = async (event) => {
   log('📥 Signaling message raw: ' + event.data, { webrtc: true });
       let message = null;
       try {
@@ -101,17 +106,18 @@ async function connectWebRTC() {
     };
 
     socket.onerror = (error) => {
-  log('❌ SFU connection error: ' + pretty(error), { webrtc: true });
+      log('❌ SFU connection error: ' + pretty(error), { webrtc: true });
+      log(`❌ WebSocket error details: readyState=${socket?.readyState}, url=${socket?.url}`, { webrtc: true });
       updateStatus('error', 'Connection failed');
-      infoP.textContent = 'Failed to connect to SFU server';
+      infoP.textContent = 'Failed to connect to SFU server. Check if SFU is running on port 3004.';
     };
 
     socket.onclose = (ev) => {
-  log(`🔌 SFU connection closed (code=${ev.code} reason=${ev.reason || ''})`, { webrtc: true });
+      log(`🔌 SFU connection closed (code=${ev.code} reason=${ev.reason || ''})`, { webrtc: true });
+      log(`🔌 Close event details: wasClean=${ev.wasClean}, type=${ev.type}`, { webrtc: true });
       updateStatus('error', 'Disconnected');
-    };
-    
-  } catch (error) {
+      infoP.textContent = `Connection closed. Code: ${ev.code}. Check if SFU server is running.`;
+    };  } catch (error) {
   log('❌ WebRTC setup error: ' + error, { webrtc: true });
     updateStatus('error', 'Setup failed');
     infoP.textContent = 'WebRTC setup failed: ' + error.message;
@@ -120,15 +126,21 @@ async function connectWebRTC() {
 
 async function handleOffer(offer) {
   try {
+    log(`📨 Received offer from SFU: ${pretty(offer)}`, { webrtc: true });
+    
     // Create peer connection with configurable ICE servers (STUN/TURN)
-  log('🔧 Creating RTCPeerConnection with ICE servers: ' + pretty(ICE_SERVERS), { webrtc: true });
+    log('🔧 Creating RTCPeerConnection with ICE servers: ' + pretty(ICE_SERVERS), { webrtc: true });
     peerConnection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    
+    log(`🔧 PeerConnection created, state: ${peerConnection.connectionState}`, { webrtc: true });
+    
     // Start periodic stats monitor
     startStatsMonitor();
     
     // Handle incoming stream
     peerConnection.ontrack = (event) => {
-      log('📺 Received video stream from SFU');
+      log(`📺 Received video stream from SFU - streams: ${event.streams.length}`, { webrtc: true });
+      log(`📺 Stream tracks: ${event.streams[0].getTracks().length}`, { webrtc: true });
       video.srcObject = event.streams[0];
       updateStatus('connected', 'Live');
       infoP.textContent = 'Real-time security feed active';
@@ -138,59 +150,67 @@ async function handleOffer(offer) {
     
     // Handle ICE candidates
     peerConnection.onicecandidate = (event) => {
-      log('🧩 onicecandidate event: ' + pretty(event.candidate));
       if (event.candidate) {
+        log(`🧩 Local ICE candidate: ${event.candidate.candidate}`, { webrtc: true });
         if (socket && socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'ice-candidate', candidate: event.candidate }));
-          log('📤 Sent local ICE candidate to SFU');
+          log('📤 Sent local ICE candidate to SFU', { webrtc: true });
         } else {
-          log('⚠️ Cannot send ICE candidate, signaling socket not open');
+          log('⚠️ Cannot send ICE candidate, signaling socket not open', { webrtc: true });
         }
       } else {
-        log('ℹ️ ICE gathering finished (null candidate)');
+        log('ℹ️ ICE gathering finished (null candidate)', { webrtc: true });
       }
     };
 
     // Additional useful connection state hooks for debugging
     peerConnection.oniceconnectionstatechange = () => {
-      log('🔁 ICE connection state: ' + peerConnection.iceConnectionState);
+      log(`🔁 ICE connection state: ${peerConnection.iceConnectionState}`, { webrtc: true });
     };
 
     peerConnection.onconnectionstatechange = () => {
-      log('🔗 Peer connection state: ' + peerConnection.connectionState);
+      log(`🔗 Peer connection state: ${peerConnection.connectionState}`, { webrtc: true });
       if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
         updateStatus('error', 'Disconnected');
+        infoP.textContent = 'Connection lost. Try reconnecting.';
       }
     };
 
-    peerConnection.onsignalingstatechange = () => {
-      log('📝 Signaling state: ' + peerConnection.signalingState);
-    };
-
     peerConnection.onicegatheringstatechange = () => {
-      log('🎯 ICE gathering state: ' + peerConnection.iceGatheringState);
+      log(`❄️ ICE gathering state: ${peerConnection.iceGatheringState}`, { webrtc: true });
+    };    peerConnection.onsignalingstatechange = () => {
+      log(`📝 Signaling state: ${peerConnection.signalingState}`, { webrtc: true });
     };
 
     peerConnection.onnegotiationneeded = async () => {
-      log('⚙️ Negotiation needed');
+      log('⚙️ Negotiation needed', { webrtc: true });
     };
     
     // Set remote description and create answer
+    log(`📝 Setting remote description (offer)`, { webrtc: true });
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    log(`📝 Remote description set successfully`, { webrtc: true });
+    
+    log(`📝 Creating SDP answer`, { webrtc: true });
     const answer = await peerConnection.createAnswer();
+    log(`📝 SDP answer created: ${pretty(answer)}`, { webrtc: true });
+    
+    log(`📝 Setting local description (answer)`, { webrtc: true });
     await peerConnection.setLocalDescription(answer);
+    log(`📝 Local description set successfully`, { webrtc: true });
     
     // Send answer back to SFU
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: 'answer', answer: answer }));
-      log('📤 Sent SDP answer to SFU');
+      log('📤 Sent SDP answer to SFU', { webrtc: true });
     } else {
-      log('❌ Cannot send SDP answer, signaling socket not open');
+      log('❌ Cannot send SDP answer, signaling socket not open', { webrtc: true });
     }
     
   } catch (error) {
-    log('❌ WebRTC handling error: ' + error);
+    log(`❌ WebRTC handling error: ${error}`, { webrtc: true });
     updateStatus('error', 'Failed');
+    infoP.textContent = `WebRTC error: ${error.message}`;
   }
 }
 
