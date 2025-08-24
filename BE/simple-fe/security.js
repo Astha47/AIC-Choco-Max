@@ -45,30 +45,15 @@ function updateStatus(status, text) {
 async function connectWebRTC() {
   try {
     log(`🚀 Initiating WebRTC connection to SFU`, { webrtc: true });
-    log(`📍 SFU WebSocket URL: ${SFU_WS}`, { webrtc: true });
+    log(`📍 SFU Socket.IO URL: ${SFU_URL}`, { webrtc: true });
     log(`🔧 ICE Servers configured: ${pretty(ICE_SERVERS)}`, { webrtc: true });
     
     updateStatus('connecting', 'Connecting...');
     infoP.textContent = 'Establishing WebRTC connection to SFU...';
     
-    // Connect to SFU signaling server
-    log(`🔌 Creating WebSocket connection to ${SFU_WS}`, { webrtc: true });
-    socket = new WebSocket(SFU_WS);
-
-    // helper to send signaling messages and log them
-    function sendSignal(msg) {
-      try {
-        const payload = JSON.stringify(msg);
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(payload);
-          log(`📤 Signaling send: ${payload}`, { webrtc: true });
-        } else {
-          log(`⚠️ Signaling not open, cannot send: ${payload}`, { webrtc: true });
-        }
-      } catch (e) {
-  log('❌ Signaling send error: ' + e, { webrtc: true });
-      }
-    }
+    // Connect to SFU using Socket.IO
+    log(`🔌 Creating Socket.IO connection to ${SFU_URL}`, { webrtc: true });
+    socket = io(SFU_URL);
 
     socket.on('connect', () => {
       updateStatus('connected', 'Connected');
@@ -153,11 +138,11 @@ async function handleOffer(offer) {
     peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
         log(`🧩 Local ICE candidate: ${event.candidate.candidate}`, { webrtc: true });
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({ type: 'ice-candidate', candidate: event.candidate }));
-          log('📤 Sent local ICE candidate to SFU', { webrtc: true });
+        if (socket && socket.connected) {
+          socket.emit('ice-candidate', { candidate: event.candidate });
+          log('📤 Sent local ICE candidate to SFU via Socket.IO', { webrtc: true });
         } else {
-          log('⚠️ Cannot send ICE candidate, signaling socket not open', { webrtc: true });
+          log('⚠️ Cannot send ICE candidate, Socket.IO not connected', { webrtc: true });
         }
       } else {
         log('ℹ️ ICE gathering finished (null candidate)', { webrtc: true });
